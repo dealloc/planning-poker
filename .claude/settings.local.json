@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(ex|heex\\)$\")",
+      "Bash(mix compile:*)"
+    ]
+  }
+}

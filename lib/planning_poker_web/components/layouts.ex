@@ -31,6 +31,10 @@ defmodule PlanningPokerWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :inner_class, :string,
+    default: "mx-auto max-w-2xl space-y-4",
+    doc: "CSS classes for the inner content container"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -63,7 +67,7 @@ defmodule PlanningPokerWeb.Layouts do
     </header>
 
     <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+      <div class={@inner_class}>
         {render_slot(@inner_block)}
       </div>
     </main>

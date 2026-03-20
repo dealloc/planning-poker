@@ -1,8 +1,8 @@
 defmodule PlanningPokerWeb.PageControllerTest do
   use PlanningPokerWeb.ConnCase
 
-  test "GET /", %{conn: conn} do
+  test "GET / renders the home live view", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    assert html_response(conn, 200) =~ "Planning Poker"
   end
 end
