@@ -38,10 +38,19 @@ defmodule PlanningPokerWeb.HomeLive do
         }
       end
 
+    join_lobby_preview =
+      if join_id do
+        case PlanningPoker.LobbyServer.get(join_id) do
+          {:ok, lobby} -> lobby
+          _ -> nil
+        end
+      end
+
     socket =
       socket
       |> assign(:mode, mode)
       |> assign(:join_lobby_id, join_id)
+      |> assign(:join_lobby_preview, join_lobby_preview)
       |> assign(:user_id, user_id)
       |> assign(:selected_avatar, user_avatar)
       |> assign(:avatars, @avatars)
@@ -79,6 +88,30 @@ defmodule PlanningPokerWeb.HomeLive do
                 <span class="font-mono font-bold text-primary">{@join_lobby_id}</span>
               </p>
             </div>
+
+            <%= if @join_lobby_preview do %>
+              <div class="bg-base-200 border border-base-300 rounded-xl p-4 mb-4">
+                <p class="text-xs text-base-content/50 uppercase font-semibold tracking-wide mb-2">You're joining</p>
+                <h2 class="text-xl font-bold text-base-content">{@join_lobby_preview.name}</h2>
+                <div class="flex flex-wrap gap-3 mt-3 text-sm text-base-content/70">
+                  <% facilitator = Map.get(@join_lobby_preview.participants, @join_lobby_preview.creator_id) %>
+                  <%= if facilitator do %>
+                    <span class="flex items-center gap-1">
+                      <span>{facilitator.avatar}</span>
+                      <span>Hosted by <strong>{facilitator.name}</strong></span>
+                    </span>
+                  <% end %>
+                  <span class="flex items-center gap-1">
+                    <.icon name="hero-users-micro" class="size-4" />
+                    {map_size(@join_lobby_preview.participants)} participant{if map_size(@join_lobby_preview.participants) != 1, do: "s", else: ""} inside
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <.icon name="hero-squares-2x2-micro" class="size-4" />
+                    {String.replace(to_string(@join_lobby_preview.planning_system), "_", " ") |> String.capitalize()} cards
+                  </span>
+                </div>
+              </div>
+            <% end %>
 
             <.form for={@form} id="join-form" action={~p"/session"} method="post">
               <input type="hidden" name="action_type" value="join" />

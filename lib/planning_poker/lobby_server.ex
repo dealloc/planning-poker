@@ -211,12 +211,8 @@ defmodule PlanningPoker.LobbyServer do
         votes: Map.delete(lobby.votes, user_id)
     }
 
-    if map_size(lobby.participants) == 0 do
-      {:stop, :normal, lobby}
-    else
-      broadcast(lobby, {:lobby_updated, lobby})
-      {:noreply, lobby}
-    end
+    broadcast(lobby, {:lobby_updated, lobby})
+    {:noreply, lobby}
   end
 
   def handle_cast({:set_status, _user_id, _status}, lobby) do

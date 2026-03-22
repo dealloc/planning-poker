@@ -52,7 +52,7 @@ defmodule PlanningPokerWeb.LobbyLive do
           {:error, :not_found} ->
             {:ok,
              socket
-             |> put_flash(:error, "Lobby not found.")
+             |> put_flash(:error, "This lobby no longer exists — it may have ended or the link is no longer valid.")
              |> push_navigate(to: ~p"/")}
         end
     end
@@ -140,7 +140,10 @@ defmodule PlanningPokerWeb.LobbyLive do
   def handle_event("toggle_auto_reveal", _params, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     LobbyServer.toggle_auto_reveal(lobby.id, uid)
-    {:noreply, socket}
+    # lobby.auto_reveal reflects the state *before* the toggle, so we negate it for the message
+    {:noreply,
+     socket
+     |> put_flash(:info, "Auto-reveal #{if lobby.auto_reveal, do: "disabled", else: "enabled"}")}
   end
 
   def handle_event("kick", %{"user-id" => user_id}, socket) do
@@ -272,6 +275,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               <button
                 id="toggle-auto-reveal"
                 phx-click="toggle_auto_reveal"
+                title="When ON: votes reveal automatically once everyone has voted. When OFF: you choose when to reveal."
                 class={[
                   "flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors cursor-pointer",
                   if(@lobby.auto_reveal,
@@ -308,18 +312,18 @@ defmodule PlanningPokerWeb.LobbyLive do
                     <p class="text-xs text-base-content/50 uppercase tracking-wider font-medium mb-1">
                       Current item
                     </p>
-                    <h2 class="text-xl font-semibold text-base-content">
+                    <h2 class="text-2xl font-bold text-base-content">
                       {@lobby.current_item.title}
                     </h2>
                     <%= if @lobby.current_item.context_url do %>
                       <a
                         href={@lobby.current_item.context_url}
                         target="_blank"
-                        rel="noopener"
-                        class="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm font-medium hover:bg-primary/20 hover:border-primary/50 transition-colors"
                       >
-                        <.icon name="hero-arrow-top-right-on-square-micro" class="size-3" />
-                        {URI.parse(@lobby.current_item.context_url).host}
+                        <.icon name="hero-arrow-top-right-on-square-micro" class="size-4" />
+                        {URI.parse(@lobby.current_item.context_url).host || "View Context"}
                       </a>
                     <% end %>
                   </div>
@@ -350,7 +354,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                             phx-click="next_item"
                             class="btn btn-sm btn-primary"
                           >
-                            Next →
+                            Next Item →
                           </button>
                         <% end %>
                       <% end %>
@@ -422,14 +426,6 @@ defmodule PlanningPokerWeb.LobbyLive do
             <%= if @lobby.state == :voting do %>
               <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
               <div class="mb-6">
-                <p class="text-sm text-base-content/50 mb-4">
-                  <%= if @my_vote do %>
-                    You voted <span class="font-mono font-bold text-primary">{@my_vote}</span>
-                    — click another to change.
-                  <% else %>
-                    Pick a card to cast your vote.
-                  <% end %>
-                </p>
                 <div class="flex flex-wrap gap-3">
                   <%= for card <- cards do %>
                     <button
@@ -452,6 +448,13 @@ defmodule PlanningPokerWeb.LobbyLive do
                     </button>
                   <% end %>
                 </div>
+                <p class="text-sm text-base-content/60 mt-3 text-center">
+                  <%= if @my_vote do %>
+                    You voted <span class="font-mono font-bold bg-primary/20 px-1.5 py-0.5 rounded">{@my_vote}</span> — tap another card to change your vote.
+                  <% else %>
+                    Pick your estimate. You can change it anytime before reveal.
+                  <% end %>
+                </p>
               </div>
             <% end %>
 
@@ -460,23 +463,29 @@ defmodule PlanningPokerWeb.LobbyLive do
               <div class="space-y-4">
                 <%!-- Start item inline --%>
                 <%= if not @show_start_form do %>
-                  <div class="flex gap-3">
-                    <button
-                      id="start-item-toggle"
-                      phx-click="toggle_start_form"
-                      class="btn btn-primary"
-                    >
-                      <.icon name="hero-play-micro" class="size-4" /> Start item
-                    </button>
-                    <%= if @lobby.queue != [] do %>
+                  <div class="bg-base-100 border-2 border-primary/20 rounded-xl p-6">
+                    <h3 class="text-base font-semibold mb-1">Ready to estimate?</h3>
+                    <p class="text-sm text-base-content/60 mb-4">
+                      Start a new item to begin voting, or select the next one from your queue.
+                    </p>
+                    <div class="flex gap-3">
                       <button
-                        id="next-from-queue-btn"
-                        phx-click="next_item"
-                        class="btn btn-ghost"
+                        id="start-item-toggle"
+                        phx-click="toggle_start_form"
+                        class="btn btn-primary"
                       >
-                        Next from queue ({length(@lobby.queue)})
+                        <.icon name="hero-play-micro" class="size-4" /> Start item
                       </button>
-                    <% end %>
+                      <%= if @lobby.queue != [] do %>
+                        <button
+                          id="next-from-queue-btn"
+                          phx-click="next_item"
+                          class="btn btn-ghost"
+                        >
+                          Next from queue ({length(@lobby.queue)})
+                        </button>
+                      <% end %>
+                    </div>
                   </div>
                 <% else %>
                   <div class="bg-base-200 rounded-xl p-5 border border-base-300">
@@ -587,17 +596,19 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <% end %>
 
                 <%= if @lobby.queue == [] && not @show_queue_form do %>
-                  <p class="text-sm text-base-content/40 py-3">
-                    No items in queue. Add stories to plan them ahead of time.
+                  <p class="text-sm text-base-content/40 py-3 text-center">
+                    No items queued yet.
+                    <button phx-click="toggle_queue_form" class="link link-primary">Add a story</button>
                   </p>
                 <% end %>
 
                 <div class="space-y-2">
-                  <%= for item <- @lobby.queue do %>
+                  <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
                     <div
                       id={"queue-item-#{item.id}"}
                       class="flex items-center gap-3 bg-base-200 rounded-lg px-4 py-2.5 border border-base-300 group"
                     >
+                      <span class="text-xs text-base-content/40 font-mono tabular-nums w-4 shrink-0">{index + 1}.</span>
                       <span class="flex-1 text-sm text-base-content truncate">{item.title}</span>
                       <button
                         phx-click="remove_from_queue"
