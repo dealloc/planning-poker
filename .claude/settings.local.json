@@ -5,7 +5,9 @@
       "Bash(mix compile:*)",
       "mcp__tidewave__project_eval",
       "mcp__tidewave__get_logs",
-      "Bash(mix precommit:*)"
+      "Bash(mix precommit:*)",
+      "Bash(podman search:*)",
+      "Bash(podman build:*)"
     ]
   }
 }

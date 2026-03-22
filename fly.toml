@@ -1,0 +1,24 @@
+# Replace 'planning-poker' with your chosen app name (must be globally unique on Fly.io).
+# Run `fly apps create <name>` first if you want to reserve a specific name.
+app = 'dealloc-planning-poker'
+primary_region = 'ams'
+
+[build]
+
+[env]
+  PHX_HOST = 'dealloc-planning-poker.fly.dev'
+  PORT = '8080'
+  PHX_SERVER = 'true'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory = '256mb'

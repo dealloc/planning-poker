@@ -1,0 +1,24 @@
+# Build artifacts
+/_build
+/deps
+/doc
+/priv/static/assets
+
+# Dev tooling
+/.elixir_ls
+/cover
+/tmp
+
+# Node
+/assets/node_modules
+
+# Git
+/.git
+/.gitignore
+
+# Env / secrets
+.env
+.envrc
+
+# Mix
+*.ez
