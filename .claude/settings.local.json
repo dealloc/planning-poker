@@ -7,7 +7,12 @@
       "mcp__tidewave__get_logs",
       "Bash(mix precommit:*)",
       "Bash(podman search:*)",
-      "Bash(podman build:*)"
+      "Bash(podman build:*)",
+      "WebSearch",
+      "WebFetch(domain:hexdocs.pm)",
+      "WebFetch(domain:fly.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:hub.docker.com)"
     ]
   }
 }
