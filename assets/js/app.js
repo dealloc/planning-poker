@@ -42,6 +42,9 @@ window.addEventListener("phx:copy_to_clipboard", ({detail: {text}}) => {
   navigator.clipboard.writeText(text).catch(err => console.error("Failed to copy:", err))
 })
 
+import Sortable from "../vendor/sortable"
+window.Sortable = Sortable
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

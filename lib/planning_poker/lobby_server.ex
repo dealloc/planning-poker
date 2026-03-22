@@ -52,6 +52,9 @@ defmodule PlanningPoker.LobbyServer do
   def remove_from_queue(lobby_id, creator_id, item_id),
     do: call(lobby_id, {:remove_from_queue, creator_id, item_id})
 
+  def reorder_queue(lobby_id, creator_id, ids),
+    do: cast(lobby_id, {:reorder_queue, creator_id, ids})
+
   def toggle_auto_reveal(lobby_id, creator_id),
     do: call(lobby_id, {:toggle_auto_reveal, creator_id})
 
@@ -225,6 +228,21 @@ defmodule PlanningPoker.LobbyServer do
       topic(lobby.id),
       {:emoji_thrown, from_id, to_id, emoji}
     )
+
+    {:noreply, lobby}
+  end
+
+  def handle_cast({:reorder_queue, creator_id, ids}, lobby) do
+    lobby =
+      if lobby.creator_id == creator_id do
+        reordered = Enum.flat_map(ids, fn id -> Enum.filter(lobby.queue, &(&1.id == id)) end)
+        missing = Enum.reject(lobby.queue, fn item -> item.id in ids end)
+        updated = %{lobby | queue: reordered ++ missing}
+        broadcast(updated, {:lobby_updated, updated})
+        updated
+      else
+        lobby
+      end
 
     {:noreply, lobby}
   end

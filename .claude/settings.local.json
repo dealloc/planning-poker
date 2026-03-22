@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(grep -E \"\\\\.\\(ex|heex\\)$\")",
-      "Bash(mix compile:*)"
+      "Bash(mix compile:*)",
+      "mcp__tidewave__project_eval",
+      "mcp__tidewave__get_logs",
+      "Bash(mix precommit:*)"
     ]
   }
 }

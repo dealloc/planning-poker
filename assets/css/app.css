@@ -103,3 +103,13 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* One-shot glow for newly selected vote card */
+@keyframes card-select-glow {
+  0%   { box-shadow: 0 0 0 0px color-mix(in oklch, var(--color-primary) 70%, transparent); }
+  50%  { box-shadow: 0 0 0 10px color-mix(in oklch, var(--color-primary) 30%, transparent); }
+  100% { box-shadow: 0 0 0 16px color-mix(in oklch, var(--color-primary) 0%, transparent); }
+}
+.card-select-glow {
+  animation: card-select-glow 0.55s ease-out 1 forwards;
+}

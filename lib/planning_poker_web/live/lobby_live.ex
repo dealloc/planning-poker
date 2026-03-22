@@ -52,7 +52,10 @@ defmodule PlanningPokerWeb.LobbyLive do
           {:error, :not_found} ->
             {:ok,
              socket
-             |> put_flash(:error, "This lobby no longer exists — it may have ended or the link is no longer valid.")
+             |> put_flash(
+               :error,
+               "This lobby no longer exists — it may have ended or the link is no longer valid."
+             )
              |> push_navigate(to: ~p"/")}
         end
     end
@@ -134,6 +137,16 @@ defmodule PlanningPokerWeb.LobbyLive do
   def handle_event("remove_from_queue", %{"id" => item_id}, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     LobbyServer.remove_from_queue(lobby.id, uid, item_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("reorder_queue", %{"ids" => ids}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+
+    if uid == lobby.creator_id do
+      LobbyServer.reorder_queue(lobby.id, uid, ids)
+    end
+
     {:noreply, socket}
   end
 
@@ -225,6 +238,17 @@ defmodule PlanningPokerWeb.LobbyLive do
     ~H"""
     <Layouts.app flash={@flash} inner_class="w-full max-w-7xl mx-auto px-4 sm:px-6">
       <div
+        id="keyboard-shortcuts-root"
+        phx-hook=".KeyboardShortcuts"
+        data-state={@lobby.state}
+        data-is-creator={to_string(@current_user_id == @lobby.creator_id)}
+        data-planning-system={@lobby.planning_system}
+        data-queue-empty={to_string(@lobby.queue == [])}
+        style="display:none"
+        aria-hidden="true"
+      >
+      </div>
+      <div
         id="lobby-root"
         phx-window-blur="blur"
         phx-window-focus="focus"
@@ -232,9 +256,9 @@ defmodule PlanningPokerWeb.LobbyLive do
         class="pb-12"
       >
         <%!-- Header --%>
-        <div class="flex flex-wrap items-center justify-between gap-4 py-6 border-b border-base-300 mb-8">
+        <div class="flex flex-wrap items-center justify-between gap-4 py-4 sm:py-6 border-b border-base-300 mb-5 sm:mb-8">
           <div>
-            <h1 class="text-2xl font-bold text-base-content">{@lobby.name}</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-base-content">{@lobby.name}</h1>
             <div class="flex items-center gap-3 mt-1">
               <span class={[
                 "inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full",
@@ -269,7 +293,7 @@ defmodule PlanningPokerWeb.LobbyLive do
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
             <%!-- Auto-reveal toggle (creator only) --%>
             <%= if @current_user_id == @lobby.creator_id do %>
               <button
@@ -295,15 +319,26 @@ defmodule PlanningPokerWeb.LobbyLive do
               title="Click to copy invite link"
             >
               <.icon name="hero-link-micro" class="size-3.5 text-base-content/50" />
-              <span class="text-xs font-mono text-base-content/60">{~p"/lobby/#{@lobby.id}"}</span>
+              <span class="text-xs font-mono text-base-content/60 hidden sm:inline">
+                {~p"/lobby/#{@lobby.id}"}
+              </span>
+              <span class="text-xs font-medium text-base-content/60 sm:hidden">Copy link</span>
+            </button>
+            <button
+              onclick="document.getElementById('shortcuts-modal').classList.toggle('hidden')"
+              class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
+              title="Keyboard shortcuts (?)"
+              aria-label="Keyboard shortcuts"
+            >
+              <kbd class="kbd kbd-sm text-xs">?</kbd>
             </button>
           </div>
         </div>
 
         <%!-- Main layout: voting area + participants --%>
-        <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 lg:gap-8">
           <%!-- Left: Voting area --%>
-          <div>
+          <div class="order-2 lg:order-1">
             <%!-- Current item --%>
             <%= if @lobby.current_item do %>
               <div class="bg-base-200 rounded-xl p-6 mb-6 border border-base-300">
@@ -332,39 +367,31 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <%= if @current_user_id == @lobby.creator_id do %>
                     <div class="flex gap-2 flex-shrink-0">
                       <%= if @lobby.state == :voting do %>
-                        <button
-                          id="reveal-btn"
-                          phx-click="reveal"
-                          class="btn btn-sm btn-primary"
-                        >
+                        <.button id="reveal-btn" phx-click="reveal" class="btn btn-sm btn-primary">
                           Reveal
-                        </button>
+                        </.button>
                       <% end %>
                       <%= if @lobby.state == :revealed do %>
-                        <button
-                          id="reset-btn"
-                          phx-click="reset_round"
-                          class="btn btn-sm btn-ghost"
-                        >
+                        <.button id="reset-btn" phx-click="reset_round" class="btn btn-sm btn-ghost">
                           Re-vote
-                        </button>
+                        </.button>
                         <%= if @lobby.queue != [] do %>
-                          <button
+                          <.button
                             id="next-item-btn"
                             phx-click="next_item"
                             class="btn btn-sm btn-primary"
                           >
                             Next Item →
-                          </button>
+                          </.button>
                         <% end %>
                       <% end %>
-                      <button
+                      <.button
                         id="skip-btn"
                         phx-click="skip_item"
                         class="btn btn-sm btn-ghost text-base-content/50"
                       >
                         Skip
-                      </button>
+                      </.button>
                     </div>
                   <% end %>
                 </div>
@@ -411,14 +438,74 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <% end %>
                 </div>
                 <%!-- Distribution --%>
+                <% cards_ordered = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
                 <div class="flex flex-wrap gap-2">
-                  <%= for {card, count} <- Enum.sort_by(stats.distribution, fn {k, _} -> k end) do %>
-                    <div class="flex items-center gap-1.5 bg-base-100 rounded-lg px-3 py-1.5">
-                      <span class="font-mono font-semibold text-base-content">{card}</span>
-                      <span class="text-xs text-base-content/50">×{count}</span>
+                  <%= for {card, count} <- Enum.sort_by(stats.distribution, fn {k, _} ->
+                        Enum.find_index(cards_ordered, &(&1 == k)) || 9999
+                      end) do %>
+                    <% tier = vote_tier(card, cards_ordered, stats.median) %>
+                    <div class={[
+                      "flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
+                      tier == :outlier && "bg-error/15 border-error/40",
+                      tier == :near_consensus && "bg-success/15 border-success/40",
+                      tier == :middle && "bg-base-100 border-base-300"
+                    ]}>
+                      <span class={[
+                        "font-mono font-semibold",
+                        tier == :outlier && "text-error",
+                        tier == :near_consensus && "text-success",
+                        tier == :middle && "text-base-content"
+                      ]}>
+                        {card}
+                      </span>
+                      <span class={[
+                        "text-xs",
+                        tier == :outlier && "text-error/70",
+                        tier == :near_consensus && "text-success/70",
+                        tier == :middle && "text-base-content/50"
+                      ]}>
+                        ×{count}
+                      </span>
                     </div>
                   <% end %>
                 </div>
+
+                <%!-- Bar chart --%>
+                <%= if map_size(stats.distribution) > 0 do %>
+                  <% max_count = stats.distribution |> Map.values() |> Enum.max() %>
+                  <div class="mt-5">
+                    <p class="text-xs text-base-content/40 uppercase tracking-wider mb-2">
+                      Distribution
+                    </p>
+                    <div class="flex items-end gap-2 h-28 border-b border-base-300">
+                      <%= for card <- cards_ordered,
+                              count = Map.get(stats.distribution, card),
+                              count != nil do %>
+                        <% tier = vote_tier(card, cards_ordered, stats.median) %>
+                        <div class="flex flex-col items-center gap-1 flex-1 min-w-[2rem]">
+                          <span class="text-[10px] text-base-content/50 leading-none">{count}</span>
+                          <div
+                            class={[
+                              "w-full rounded-t-md transition-all",
+                              tier == :outlier && "bg-error/60",
+                              tier == :near_consensus && "bg-success/60",
+                              tier == :middle && "bg-primary/40"
+                            ]}
+                            style={"height: #{Float.round(count / max_count * 100, 1)}%;"}
+                          >
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
+                    <div class="flex gap-2 mt-1">
+                      <%= for card <- cards_ordered, Map.has_key?(stats.distribution, card) do %>
+                        <div class="flex-1 min-w-[2rem] text-center text-[10px] text-base-content/40 font-mono truncate">
+                          {card}
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             <% end %>
 
@@ -426,31 +513,56 @@ defmodule PlanningPokerWeb.LobbyLive do
             <%= if @lobby.state == :voting do %>
               <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
               <div class="mb-6">
-                <div class="flex flex-wrap gap-3">
+                <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
                   <%= for card <- cards do %>
+                    <% selected = @my_vote == card %>
                     <button
                       id={"card-#{card}"}
                       phx-click="vote"
                       phx-value-card={card}
                       class={[
-                        "relative w-20 h-28 rounded-xl border-2 text-xl font-bold",
-                        "flex items-center justify-center cursor-pointer select-none",
+                        "relative h-24 sm:h-28 md:w-20 rounded-xl border-2 text-xl font-bold",
+                        "flex flex-col items-center justify-center cursor-pointer select-none",
                         "transition-all duration-150 hover:-translate-y-1 hover:scale-110 hover:shadow-lg",
-                        if(@my_vote == card,
+                        if(selected,
                           do:
-                            "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105",
+                            "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105 card-select-glow",
                           else:
                             "bg-base-200 border-base-300 text-base-content hover:border-primary/50"
                         )
                       ]}
                     >
                       {card}
+                      <%= if selected do %>
+                        <span class="absolute bottom-1.5 left-0 right-0 mx-auto flex items-center justify-center gap-0.5 text-[9px] font-semibold uppercase tracking-widest leading-none text-primary-content/80">
+                          <svg
+                            class="size-2.5 shrink-0"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M2 6.5L4.8 9.5L10 3"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
+                          Picked
+                        </span>
+                      <% end %>
                     </button>
                   <% end %>
                 </div>
                 <p class="text-sm text-base-content/60 mt-3 text-center">
                   <%= if @my_vote do %>
-                    You voted <span class="font-mono font-bold bg-primary/20 px-1.5 py-0.5 rounded">{@my_vote}</span> — tap another card to change your vote.
+                    You voted
+                    <span class="font-mono font-bold bg-primary/20 px-1.5 py-0.5 rounded">
+                      {@my_vote}
+                    </span>
+                    — tap another card to change your vote.
                   <% else %>
                     Pick your estimate. You can change it anytime before reveal.
                   <% end %>
@@ -469,21 +581,17 @@ defmodule PlanningPokerWeb.LobbyLive do
                       Start a new item to begin voting, or select the next one from your queue.
                     </p>
                     <div class="flex gap-3">
-                      <button
+                      <.button
                         id="start-item-toggle"
                         phx-click="toggle_start_form"
                         class="btn btn-primary"
                       >
                         <.icon name="hero-play-micro" class="size-4" /> Start item
-                      </button>
+                      </.button>
                       <%= if @lobby.queue != [] do %>
-                        <button
-                          id="next-from-queue-btn"
-                          phx-click="next_item"
-                          class="btn btn-ghost"
-                        >
+                        <.button id="next-from-queue-btn" phx-click="next_item" class="btn btn-ghost">
                           Next from queue ({length(@lobby.queue)})
-                        </button>
+                        </.button>
                       <% end %>
                     </div>
                   </div>
@@ -507,14 +615,14 @@ defmodule PlanningPokerWeb.LobbyLive do
                         autocomplete="off"
                       />
                       <div class="flex gap-2 mt-2">
-                        <button type="submit" class="btn btn-primary btn-sm">Start voting</button>
-                        <button
+                        <.button type="submit" class="btn btn-primary btn-sm">Start voting</.button>
+                        <.button
                           type="button"
                           phx-click="toggle_start_form"
                           class="btn btn-ghost btn-sm"
                         >
                           Cancel
-                        </button>
+                        </.button>
                       </div>
                     </.form>
                   </div>
@@ -554,13 +662,13 @@ defmodule PlanningPokerWeb.LobbyLive do
                       </span>
                     <% end %>
                   </h3>
-                  <button
+                  <.button
                     id="toggle-queue-form"
                     phx-click="toggle_queue_form"
                     class="btn btn-ghost btn-xs"
                   >
                     <.icon name="hero-plus-micro" class="size-3.5" /> Add
-                  </button>
+                  </.button>
                 </div>
 
                 <%= if @show_queue_form do %>
@@ -582,14 +690,14 @@ defmodule PlanningPokerWeb.LobbyLive do
                         autocomplete="off"
                       />
                       <div class="flex gap-2 mt-2">
-                        <button type="submit" class="btn btn-primary btn-sm">Add to queue</button>
-                        <button
+                        <.button type="submit" class="btn btn-primary btn-sm">Add to queue</.button>
+                        <.button
                           type="button"
                           phx-click="toggle_queue_form"
                           class="btn btn-ghost btn-sm"
                         >
                           Cancel
-                        </button>
+                        </.button>
                       </div>
                     </.form>
                   </div>
@@ -598,17 +706,29 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <%= if @lobby.queue == [] && not @show_queue_form do %>
                   <p class="text-sm text-base-content/40 py-3 text-center">
                     No items queued yet.
-                    <button phx-click="toggle_queue_form" class="link link-primary">Add a story</button>
+                    <button phx-click="toggle_queue_form" class="link link-primary">
+                      Add a story
+                    </button>
                   </p>
                 <% end %>
 
-                <div class="space-y-2">
+                <div
+                  id="queue-list"
+                  phx-hook=".QueueSortable"
+                  class="space-y-2"
+                >
                   <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
                     <div
                       id={"queue-item-#{item.id}"}
+                      data-id={item.id}
                       class="flex items-center gap-3 bg-base-200 rounded-lg px-4 py-2.5 border border-base-300 group"
                     >
-                      <span class="text-xs text-base-content/40 font-mono tabular-nums w-4 shrink-0">{index + 1}.</span>
+                      <span class="drag-handle cursor-grab text-base-content/30 hover:text-base-content/60 shrink-0">
+                        <.icon name="hero-bars-2-micro" class="size-4" />
+                      </span>
+                      <span class="text-xs text-base-content/40 font-mono tabular-nums w-4 shrink-0">
+                        {index + 1}.
+                      </span>
                       <span class="flex-1 text-sm text-base-content truncate">{item.title}</span>
                       <button
                         phx-click="remove_from_queue"
@@ -662,10 +782,18 @@ defmodule PlanningPokerWeb.LobbyLive do
           </div>
 
           <%!-- Right: Participant list --%>
-          <div>
-            <h3 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-4">
+          <div class="order-1 lg:order-2">
+            <h3 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-3">
               Participants ({map_size(@lobby.participants)})
             </h3>
+            <div class="flex items-center gap-4 mb-4 text-xs text-base-content/50">
+              <span class="flex items-center gap-1.5">
+                <span class="size-3 rounded-full bg-success inline-block"></span> Ready
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="size-3 rounded-full bg-warning inline-block"></span> Away
+              </span>
+            </div>
 
             <div class="space-y-2">
               <%= for {pid, participant} <- @lobby.participants do %>
@@ -678,7 +806,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <div
                   id={"participant-#{pid}"}
                   class={[
-                    "flex items-center gap-3 rounded-xl px-4 py-3 border transition-colors",
+                    "flex items-center gap-2 sm:gap-3 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 border transition-colors",
                     if(is_me,
                       do: "bg-primary/5 border-primary/20",
                       else: "bg-base-200 border-base-300"
@@ -688,13 +816,27 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <%!-- Avatar + presence indicator --%>
                   <div class="relative flex-shrink-0">
                     <span class="text-2xl">{participant.avatar}</span>
-                    <span class={[
-                      "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-base-100",
-                      if(presence_meta && presence_meta.status == :reading,
-                        do: "bg-warning",
-                        else: "bg-success"
-                      )
-                    ]}>
+                    <span
+                      title={
+                        if(presence_meta && presence_meta.status == :reading,
+                          do: "Away",
+                          else: "Ready"
+                        )
+                      }
+                      aria-label={
+                        if(presence_meta && presence_meta.status == :reading,
+                          do: "Away",
+                          else: "Ready"
+                        )
+                      }
+                      class={[
+                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-base-100",
+                        if(presence_meta && presence_meta.status == :reading,
+                          do: "bg-warning",
+                          else: "bg-success"
+                        )
+                      ]}
+                    >
                     </span>
                   </div>
 
@@ -741,12 +883,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <%= if not is_me do %>
                     <div class="hidden group-hover:flex items-center gap-1"></div>
                     <div class="dropdown dropdown-end">
-                      <button
+                      <.button
                         tabindex="0"
-                        class="btn btn-ghost btn-xs text-base-content/30 hover:text-base-content"
+                        class="btn btn-ghost btn-xs min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-base-content/30 hover:text-base-content"
                       >
                         <.icon name="hero-face-smile-micro" class="size-4" />
-                      </button>
+                      </.button>
                       <div
                         tabindex="0"
                         class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-2 shadow-lg w-52"
@@ -769,7 +911,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                             <button
                               phx-click="kick"
                               phx-value-user-id={pid}
-                              class="w-full text-left text-xs text-error hover:bg-error/10 rounded px-2 py-1 transition-colors cursor-pointer"
+                              class="w-full text-left text-xs text-error hover:bg-error/10 rounded px-2 py-2.5 sm:py-1 transition-colors cursor-pointer"
                             >
                               Remove from lobby
                             </button>
@@ -780,6 +922,75 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <% end %>
                 </div>
               <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+      <%!-- Keyboard Shortcuts Modal --%>
+      <div
+        id="shortcuts-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
+        onclick="if(event.target===this) this.classList.add('hidden')"
+      >
+        <div class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-sm mx-4">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-base-content">Keyboard Shortcuts</h2>
+            <button
+              class="btn btn-ghost btn-sm btn-circle"
+              onclick="document.getElementById('shortcuts-modal').classList.add('hidden')"
+              aria-label="Close"
+            >
+              <.icon name="hero-x-mark-micro" class="size-4" />
+            </button>
+          </div>
+          <div class="space-y-4 text-sm">
+            <div>
+              <p class="text-xs text-base-content/50 uppercase tracking-wider font-medium mb-2">
+                Voting
+              </p>
+              <div class="flex items-center justify-between">
+                <span class="text-base-content/70">Vote for card (by position)</span>
+                <div class="flex gap-1 flex-wrap justify-end">
+                  <kbd class="kbd kbd-sm">1</kbd><span class="text-base-content/40">–</span><kbd class="kbd kbd-sm">9</kbd>
+                  <kbd class="kbd kbd-sm">0</kbd><kbd class="kbd kbd-sm">Q</kbd><kbd class="kbd kbd-sm">W</kbd><kbd class="kbd kbd-sm">E</kbd>
+                </div>
+              </div>
+            </div>
+            <%= if @current_user_id == @lobby.creator_id do %>
+              <div>
+                <p class="text-xs text-base-content/50 uppercase tracking-wider font-medium mb-2">
+                  Facilitator
+                </p>
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-base-content/70">Reveal votes</span>
+                    <div class="flex gap-1">
+                      <kbd class="kbd kbd-sm">Space</kbd><span class="text-base-content/40">or</span><kbd class="kbd kbd-sm">R</kbd>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-base-content/70">Re-vote</span>
+                    <kbd class="kbd kbd-sm">V</kbd>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-base-content/70">Next item</span>
+                    <kbd class="kbd kbd-sm">N</kbd>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-base-content/70">Toggle auto-reveal</span>
+                    <kbd class="kbd kbd-sm">A</kbd>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+            <div>
+              <p class="text-xs text-base-content/50 uppercase tracking-wider font-medium mb-2">
+                General
+              </p>
+              <div class="flex items-center justify-between">
+                <span class="text-base-content/70">Toggle this help</span>
+                <kbd class="kbd kbd-sm">?</kbd>
+              </div>
             </div>
           </div>
         </div>
@@ -826,6 +1037,105 @@ defmodule PlanningPokerWeb.LobbyLive do
         }
       }
     </script>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".QueueSortable">
+      export default {
+        mounted() {
+          this._sortable = new window.Sortable(this.el, {
+            animation: 150,
+            ghostClass: "opacity-40",
+            handle: ".drag-handle",
+            onEnd: ({ oldIndex, newIndex }) => {
+              if (oldIndex === newIndex) return
+              const ids = Array.from(this.el.children).map(el => el.dataset.id)
+              this.pushEvent("reorder_queue", { ids })
+            }
+          })
+        },
+        updated() {},
+        destroyed() {
+          this._sortable.destroy()
+        }
+      }
+    </script>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".KeyboardShortcuts">
+      const VOTE_KEYS = ["1","2","3","4","5","6","7","8","9","0","q","w","e"]
+
+      export default {
+        mounted() {
+          this._keydown = (e) => this.handleKey(e)
+          window.addEventListener("keydown", this._keydown)
+        },
+        destroyed() {
+          window.removeEventListener("keydown", this._keydown)
+        },
+        handleKey(e) {
+          if (e.ctrlKey || e.altKey || e.metaKey) return
+          const tag = document.activeElement?.tagName?.toLowerCase()
+          if (tag === "input" || tag === "textarea" || tag === "select" || document.activeElement?.isContentEditable) return
+
+          const key = e.key.toLowerCase()
+          const ds = this.el.dataset
+          const state = ds.state
+          const isCreator = ds.isCreator === "true"
+          const queueEmpty = ds.queueEmpty === "true"
+
+          if (e.key === "?" || e.key === "/") {
+            e.preventDefault()
+            const modal = document.getElementById("shortcuts-modal")
+            if (modal) modal.classList.toggle("hidden")
+            return
+          }
+
+          if (e.key === "Escape") {
+            const modal = document.getElementById("shortcuts-modal")
+            if (modal && !modal.classList.contains("hidden")) {
+              modal.classList.add("hidden")
+              e.preventDefault()
+            }
+            return
+          }
+
+          if (state === "voting") {
+            const idx = VOTE_KEYS.indexOf(key)
+            if (idx !== -1) {
+              e.preventDefault()
+              const cardButtons = document.querySelectorAll("[id^='card-']")
+              const btn = cardButtons[idx]
+              if (btn) {
+                const cardValue = btn.getAttribute("phx-value-card")
+                if (cardValue) this.pushEvent("vote", {card: cardValue})
+              }
+              return
+            }
+          }
+
+          if (!isCreator) return
+
+          if ((key === " " || e.code === "Space" || key === "r") && state === "voting") {
+            e.preventDefault()
+            this.pushEvent("reveal", {})
+            return
+          }
+          if (key === "v" && state === "revealed") {
+            e.preventDefault()
+            this.pushEvent("reset_round", {})
+            return
+          }
+          if (key === "n" && state === "revealed" && !queueEmpty) {
+            e.preventDefault()
+            this.pushEvent("next_item", {})
+            return
+          }
+          if (key === "a") {
+            e.preventDefault()
+            this.pushEvent("toggle_auto_reveal", {})
+            return
+          }
+        }
+      }
+    </script>
     """
   end
 
@@ -835,6 +1145,49 @@ defmodule PlanningPokerWeb.LobbyLive do
     case Map.get(presence, user_id) do
       %{metas: [meta | _]} -> meta
       _ -> nil
+    end
+  end
+
+  defp vote_tier(card, cards_ordered, median) do
+    median_card = snap_median_to_card(median, cards_ordered)
+
+    case {median_card, Enum.find_index(cards_ordered, &(&1 == card)),
+          Enum.find_index(cards_ordered, &(&1 == median_card))} do
+      {nil, _, _} ->
+        :middle
+
+      {_, nil, _} ->
+        :middle
+
+      {_, card_idx, median_idx} ->
+        distance = abs(card_idx - median_idx)
+
+        cond do
+          distance == 0 -> :near_consensus
+          distance == 1 -> :middle
+          true -> :outlier
+        end
+    end
+  end
+
+  defp snap_median_to_card(nil, _cards), do: nil
+
+  defp snap_median_to_card(median, cards) do
+    numeric_cards =
+      Enum.flat_map(cards, fn c ->
+        case Float.parse(to_string(c)) do
+          {n, ""} -> [{n, c}]
+          _ -> []
+        end
+      end)
+
+    case numeric_cards do
+      [] ->
+        nil
+
+      _ ->
+        {_val, card_str} = Enum.min_by(numeric_cards, fn {n, _c} -> abs(n - median) end)
+        card_str
     end
   end
 
