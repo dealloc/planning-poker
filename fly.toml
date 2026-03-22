@@ -6,7 +6,7 @@ primary_region = 'ams'
 [build]
 
 [env]
-  PHX_HOST = 'dealloc-planning-poker.fly.dev'
+  PHX_HOST = 'planning-poker.dealloc.be'
   PORT = '8080'
   PHX_SERVER = 'true'
 
