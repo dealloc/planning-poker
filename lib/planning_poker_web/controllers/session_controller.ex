@@ -55,7 +55,7 @@ defmodule PlanningPokerWeb.SessionController do
     |> redirect(to: ~p"/")
   end
 
-  defp to_planning_system(s) when s in @valid_systems, do: String.to_existing_atom(s)
+  defp to_planning_system(s) when s in @valid_systems, do: String.to_atom(s)
   defp to_planning_system(_), do: :fibonacci
 
   defp generate_id do

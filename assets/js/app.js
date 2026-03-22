@@ -37,6 +37,11 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// Copy to clipboard handler for share link
+window.addEventListener("phx:copy_to_clipboard", ({detail: {text}}) => {
+  navigator.clipboard.writeText(text).catch(err => console.error("Failed to copy:", err))
+})
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
@@ -80,4 +85,5 @@ if (process.env.NODE_ENV === "development") {
     window.liveReloader = reloader
   })
 }
+
 

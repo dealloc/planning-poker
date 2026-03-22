@@ -185,6 +185,11 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, socket}
   end
 
+  def handle_event("copy_lobby_link", _params, socket) do
+    lobby_url = url(~p"/lobby/#{socket.assigns.lobby.id}")
+    {:noreply, push_event(socket, "copy_to_clipboard", %{text: lobby_url})}
+  end
+
   # ── PubSub messages ──────────────────────────────────────────────────────────
 
   @impl true
@@ -251,6 +256,13 @@ defmodule PlanningPokerWeb.LobbyLive do
                 |> String.replace("_", " ")
                 |> String.capitalize()}
               </span>
+
+              <%!-- Live vote progress counter --%>
+              <%= if @lobby.state == :voting do %>
+                <span class="text-xs text-base-content/50">
+                  {map_size(@lobby.votes)}/{map_size(@lobby.participants)} voted
+                </span>
+              <% end %>
             </div>
           </div>
 
@@ -273,10 +285,14 @@ defmodule PlanningPokerWeb.LobbyLive do
             <% end %>
 
             <%!-- Share link --%>
-            <div class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5">
+            <button
+              phx-click="copy_lobby_link"
+              class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
+              title="Click to copy invite link"
+            >
               <.icon name="hero-link-micro" class="size-3.5 text-base-content/50" />
-              <span class="text-xs font-mono text-base-content/60">{@lobby.id}</span>
-            </div>
+              <span class="text-xs font-mono text-base-content/60">{~p"/lobby/#{@lobby.id}"}</span>
+            </button>
           </div>
         </div>
 
@@ -421,9 +437,9 @@ defmodule PlanningPokerWeb.LobbyLive do
                       phx-click="vote"
                       phx-value-card={card}
                       class={[
-                        "relative w-16 h-24 rounded-xl border-2 text-xl font-bold",
+                        "relative w-20 h-28 rounded-xl border-2 text-xl font-bold",
                         "flex items-center justify-center cursor-pointer select-none",
-                        "transition-all duration-150 hover:-translate-y-1 hover:shadow-lg",
+                        "transition-all duration-150 hover:-translate-y-1 hover:scale-110 hover:shadow-lg",
                         if(@my_vote == card,
                           do:
                             "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105",
@@ -499,10 +515,20 @@ defmodule PlanningPokerWeb.LobbyLive do
 
             <%!-- Waiting state, non-creator --%>
             <%= if @lobby.state == :waiting && @current_user_id != @lobby.creator_id do %>
+              <% facilitator = Map.get(@lobby.participants, @lobby.creator_id) %>
               <div class="flex flex-col items-center justify-center py-16 text-center">
                 <div class="text-5xl mb-4">⏳</div>
                 <p class="text-lg font-medium text-base-content/60">
-                  Waiting for the facilitator to start a round…
+                  Waiting for
+                  <%= if facilitator do %>
+                    <span class="text-base-content/80 font-semibold">{facilitator.name}</span>
+                  <% else %>
+                    the facilitator
+                  <% end %>
+                  to start a round…
+                </p>
+                <p class="text-sm text-base-content/40 mt-2">
+                  You'll be able to vote once a story or task is started.
                 </p>
               </div>
             <% end %>
