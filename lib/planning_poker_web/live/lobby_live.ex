@@ -3,7 +3,16 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   alias PlanningPoker.{LobbyServer, Presence}
 
-  @throw_emojis ["👍", "👎", "🎉", "❤️", "😂", "🤔", "🔥", "💩", "🚀", "⭐"]
+  @throw_emojis [
+    # Reactions
+    "👍", "👎", "🎉", "❤️", "😂", "🤔", "🔥", "💩", "🚀", "⭐",
+    # More reactions
+    "😍", "😅", "🥲", "😬", "🤯", "🤩", "😤", "🥳", "😴", "🤦",
+    # Work & process
+    "✅", "❌", "⚠️", "🐛", "🔑", "💡", "📦", "🧪", "🛑", "📝",
+    # Team & fun
+    "🙌", "👀", "🤝", "💪", "🎯", "🏆", "🍕", "☕", "🎲", "🐢"
+  ]
 
   # ── Mount ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +55,10 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:start_form, to_form(%{"title" => "", "context_url" => ""}))
               |> assign(:queue_form, to_form(%{"title" => "", "context_url" => ""}))
               |> assign(:page_title, lobby.name)
+              |> assign(:pending_host_transfer, lobby.pending_host_transfer)
+              |> assign(:elapsed_seconds, elapsed_seconds(lobby.opened_at))
+
+            if connected?(socket), do: Process.send_after(self(), :tick, 1_000)
 
             {:ok, socket}
 
@@ -159,10 +172,71 @@ defmodule PlanningPokerWeb.LobbyLive do
      |> put_flash(:info, "Auto-reveal #{if lobby.auto_reveal, do: "disabled", else: "enabled"}")}
   end
 
+  def handle_event("toggle_members_queue", _params, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    LobbyServer.toggle_members_queue(lobby.id, uid)
+
+    {:noreply,
+     socket
+     |> put_flash(
+       :info,
+       "Members can add to queue: #{if lobby.members_can_add_to_queue, do: "disabled", else: "enabled"}"
+     )}
+  end
+
   def handle_event("kick", %{"user-id" => user_id}, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     LobbyServer.kick(lobby.id, uid, user_id)
     {:noreply, socket}
+  end
+
+  def handle_event("transfer_host", %{"user-id" => to_id}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    LobbyServer.transfer_host(lobby.id, uid, to_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("accept_host_transfer", _params, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    LobbyServer.accept_host_transfer(lobby.id, uid)
+    {:noreply, assign(socket, :pending_host_transfer, nil)}
+  end
+
+  def handle_event("decline_host_transfer", _params, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    LobbyServer.decline_host_transfer(lobby.id, uid)
+    {:noreply, assign(socket, :pending_host_transfer, nil)}
+  end
+
+  def handle_event("export_history", %{"format" => format}, socket) do
+    history = socket.assigns.lobby.history
+    date = Date.utc_today() |> Date.to_iso8601()
+    filename = "planning-poker-history-#{date}"
+
+    case format do
+      "csv" ->
+        content = build_csv(history)
+
+        {:noreply,
+         push_event(socket, "download_file", %{
+           filename: "#{filename}.csv",
+           content: content,
+           mime_type: "text/csv"
+         })}
+
+      "json" ->
+        content = build_json(history)
+
+        {:noreply,
+         push_event(socket, "download_file", %{
+           filename: "#{filename}.json",
+           content: content,
+           mime_type: "application/json"
+         })}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("throw_emoji", %{"to" => to_id, "emoji" => emoji}, socket) do
@@ -211,7 +285,45 @@ defmodule PlanningPokerWeb.LobbyLive do
   @impl true
   def handle_info({:lobby_updated, lobby}, socket) do
     my_vote = Map.get(lobby.votes, socket.assigns.current_user_id)
-    {:noreply, socket |> assign(:lobby, lobby) |> assign(:my_vote, my_vote)}
+
+    # Keep local pending_host_transfer unless it was cleared server-side
+    pending =
+      if lobby.pending_host_transfer == nil do
+        nil
+      else
+        socket.assigns.pending_host_transfer
+      end
+
+    {:noreply,
+     socket
+     |> assign(:lobby, lobby)
+     |> assign(:my_vote, my_vote)
+     |> assign(:pending_host_transfer, pending)}
+  end
+
+  def handle_info({:host_transfer_offered, to_id}, socket) do
+    lobby = %{socket.assigns.lobby | pending_host_transfer: to_id}
+    socket = assign(socket, :lobby, lobby)
+
+    socket =
+      if socket.assigns.current_user_id == to_id do
+        assign(socket, :pending_host_transfer, to_id)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:host_transfer_declined, _user_id}, socket) do
+    lobby = %{socket.assigns.lobby | pending_host_transfer: nil}
+    {:noreply, socket |> assign(:lobby, lobby) |> assign(:pending_host_transfer, nil)}
+  end
+
+  def handle_info(:tick, socket) do
+    elapsed = elapsed_seconds(socket.assigns.lobby.opened_at)
+    Process.send_after(self(), :tick, 1_000)
+    {:noreply, assign(socket, :elapsed_seconds, elapsed)}
   end
 
   def handle_info({:emoji_thrown, from, to, emoji}, socket) do
@@ -255,6 +367,35 @@ defmodule PlanningPokerWeb.LobbyLive do
         phx-hook=".EmojiThrow"
         class="pb-12"
       >
+        <%!-- Host transfer offer banner (only visible to the invited user) --%>
+        <%= if @pending_host_transfer == @current_user_id do %>
+          <% offerer = Map.get(@lobby.participants, @lobby.creator_id) %>
+          <div class="mb-4 flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3">
+            <div class="flex items-center gap-2 text-sm text-base-content">
+              <.icon name="hero-crown-micro" class="size-4 text-primary flex-shrink-0" />
+              <span>
+                <span class="font-semibold">
+                  {if offerer, do: offerer.name, else: "The host"}
+                </span>
+                wants to make you the host of this lobby.
+              </span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <button
+                phx-click="accept_host_transfer"
+                class="flex items-center gap-1.5 bg-primary text-primary-content rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                Accept
+              </button>
+              <button
+                phx-click="decline_host_transfer"
+                class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 text-sm text-base-content/60 hover:bg-base-300 transition-colors cursor-pointer"
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        <% end %>
         <%!-- Header --%>
         <div class="flex flex-wrap items-center justify-between gap-4 py-4 sm:py-6 border-b border-base-300 mb-5 sm:mb-8">
           <div>
@@ -290,11 +431,16 @@ defmodule PlanningPokerWeb.LobbyLive do
                   {map_size(@lobby.votes)}/{map_size(@lobby.participants)} voted
                 </span>
               <% end %>
+
+              <%!-- Elapsed timer --%>
+              <span class="text-xs text-base-content/40">
+                {format_elapsed(@elapsed_seconds)}
+              </span>
             </div>
           </div>
 
           <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-            <%!-- Auto-reveal toggle (creator only) --%>
+            <%!-- Creator-only toggles --%>
             <%= if @current_user_id == @lobby.creator_id do %>
               <button
                 id="toggle-auto-reveal"
@@ -309,6 +455,20 @@ defmodule PlanningPokerWeb.LobbyLive do
                 ]}
               >
                 <.icon name="hero-bolt-micro" class="size-3.5" /> Auto-reveal
+              </button>
+              <button
+                id="toggle-members-queue"
+                phx-click="toggle_members_queue"
+                title="When ON: all members can add items to the queue. When OFF: only the host can."
+                class={[
+                  "flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors cursor-pointer",
+                  if(@lobby.members_can_add_to_queue,
+                    do: "bg-primary/10 border-primary/30 text-primary",
+                    else: "bg-base-200 border-base-300 text-base-content/60 hover:border-base-400"
+                  )
+                ]}
+              >
+                <.icon name="hero-queue-list-micro" class="size-3.5" /> Member queue
               </button>
             <% end %>
 
@@ -633,7 +793,7 @@ defmodule PlanningPokerWeb.LobbyLive do
             <%!-- Waiting state, non-creator --%>
             <%= if @lobby.state == :waiting && @current_user_id != @lobby.creator_id do %>
               <% facilitator = Map.get(@lobby.participants, @lobby.creator_id) %>
-              <div class="flex flex-col items-center justify-center py-16 text-center">
+              <div class="flex flex-col items-center justify-center py-12 text-center">
                 <div class="text-5xl mb-4">⏳</div>
                 <p class="text-lg font-medium text-base-content/60">
                   Waiting for
@@ -648,6 +808,23 @@ defmodule PlanningPokerWeb.LobbyLive do
                   You'll be able to vote once a story or task is started.
                 </p>
               </div>
+              <%!-- Queue progress for non-creator members (waiting state) --%>
+              <%= if @lobby.queue != [] || @lobby.history != [] || @lobby.members_can_add_to_queue do %>
+                <.queue_progress_panel
+                  lobby={@lobby}
+                  show_queue_form={@show_queue_form}
+                  queue_form={@queue_form}
+                />
+              <% end %>
+            <% end %>
+
+            <%!-- Queue progress for non-creator members (voting/revealed state) --%>
+            <%= if @current_user_id != @lobby.creator_id && @lobby.state != :waiting && (@lobby.queue != [] || @lobby.history != [] || @lobby.members_can_add_to_queue) do %>
+              <.queue_progress_panel
+                lobby={@lobby}
+                show_queue_form={@show_queue_form}
+                queue_form={@queue_form}
+              />
             <% end %>
 
             <%!-- Queue --%>
@@ -747,7 +924,27 @@ defmodule PlanningPokerWeb.LobbyLive do
             <%!-- History --%>
             <%= if @lobby.history != [] do %>
               <div class="mt-10">
-                <h3 class="font-semibold text-base-content/80 mb-4">History</h3>
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-semibold text-base-content/80">History</h3>
+                  <div class="flex items-center gap-2">
+                    <button
+                      phx-click="export_history"
+                      phx-value-format="csv"
+                      class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer text-xs font-medium text-base-content/70"
+                    >
+                      <.icon name="hero-arrow-down-tray-micro" class="size-3.5 text-base-content/50" />
+                      Export CSV
+                    </button>
+                    <button
+                      phx-click="export_history"
+                      phx-value-format="json"
+                      class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer text-xs font-medium text-base-content/70"
+                    >
+                      <.icon name="hero-arrow-down-tray-micro" class="size-3.5 text-base-content/50" />
+                      Export JSON
+                    </button>
+                  </div>
+                </div>
                 <div class="space-y-3">
                   <%= for entry <- @lobby.history do %>
                     <div
@@ -759,6 +956,11 @@ defmodule PlanningPokerWeb.LobbyLive do
                           {entry.item && entry.item.title}
                         </span>
                         <div class="flex items-center gap-3 flex-shrink-0">
+                          <%= if formatted = format_duration(entry[:duration_seconds]) do %>
+                            <span class="text-xs text-base-content/40 font-mono">
+                              {formatted}
+                            </span>
+                          <% end %>
                           <%= if entry.stats.avg do %>
                             <span class="text-xs text-base-content/50">
                               avg
@@ -891,7 +1093,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                       </.button>
                       <div
                         tabindex="0"
-                        class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-2 shadow-lg w-52"
+                        class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-2 shadow-lg w-72"
                       >
                         <p class="text-xs text-base-content/50 mb-2 px-1">Throw an emoji</p>
                         <div class="flex flex-wrap gap-1">
@@ -907,7 +1109,14 @@ defmodule PlanningPokerWeb.LobbyLive do
                           <% end %>
                         </div>
                         <%= if @current_user_id == @lobby.creator_id do %>
-                          <div class="border-t border-base-300 mt-2 pt-2">
+                          <div class="border-t border-base-300 mt-2 pt-2 space-y-0.5">
+                            <button
+                              phx-click="transfer_host"
+                              phx-value-user-id={pid}
+                              class="w-full text-left text-xs text-base-content/60 hover:bg-base-200 rounded px-2 py-2.5 sm:py-1 transition-colors cursor-pointer"
+                            >
+                              Make host
+                            </button>
                             <button
                               phx-click="kick"
                               phx-value-user-id={pid}
@@ -1000,6 +1209,18 @@ defmodule PlanningPokerWeb.LobbyLive do
     <script :type={Phoenix.LiveView.ColocatedHook} name=".EmojiThrow">
       export default {
         mounted() {
+          this.handleEvent("download_file", ({ filename, content, mime_type }) => {
+            const blob = new Blob([content], { type: mime_type })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          })
+
           this.handleEvent("emoji_thrown", ({ from, to, emoji, target_el }) => {
             const fromEl = document.getElementById(`participant-${from}`)
             const toEl = document.getElementById(target_el)
@@ -1140,6 +1361,213 @@ defmodule PlanningPokerWeb.LobbyLive do
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────────
+
+  attr :lobby, :map, required: true
+  attr :show_queue_form, :boolean, default: false
+  attr :queue_form, :map, default: nil
+
+  defp queue_progress_panel(assigns) do
+    ~H"""
+    <% total = length(@lobby.history) + (if @lobby.current_item, do: 1, else: 0) + length(@lobby.queue) %>
+    <% completed = length(@lobby.history) %>
+    <% current_position = completed + (if @lobby.current_item, do: 1, else: 0) %>
+    <div class="mt-8 bg-base-200 rounded-xl p-5 border border-base-300">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wider">Queue</h3>
+        <%= if total > 0 do %>
+          <span class="text-xs text-base-content/50">
+            <%= if @lobby.current_item do %>
+              Item {current_position} of {total}
+            <% else %>
+              {completed} of {total} done
+            <% end %>
+          </span>
+        <% end %>
+      </div>
+
+      <%!-- Add item form for members (when members_can_add_to_queue is true) --%>
+      <%= if @lobby.members_can_add_to_queue do %>
+        <div class="mb-4">
+          <%= if @show_queue_form do %>
+            <div class="bg-base-100 rounded-xl p-4 mb-3 border border-base-300">
+              <.form for={@queue_form} id="member-queue-form" phx-submit="add_to_queue">
+                <.input
+                  field={@queue_form[:title]}
+                  type="text"
+                  label="Item title"
+                  placeholder="User story or task…"
+                  required
+                  autocomplete="off"
+                />
+                <.input
+                  field={@queue_form[:context_url]}
+                  type="url"
+                  label="Link (optional)"
+                  placeholder="https://…"
+                  autocomplete="off"
+                />
+                <div class="flex gap-2 mt-2">
+                  <.button type="submit" class="btn btn-primary btn-sm">Add to queue</.button>
+                  <.button
+                    type="button"
+                    phx-click="toggle_queue_form"
+                    class="btn btn-ghost btn-sm"
+                  >
+                    Cancel
+                  </.button>
+                </div>
+              </.form>
+            </div>
+          <% else %>
+            <.button
+              id="member-toggle-queue-form"
+              phx-click="toggle_queue_form"
+              class="btn btn-ghost btn-xs"
+            >
+              <.icon name="hero-plus-micro" class="size-3.5" /> Add item
+            </.button>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%!-- Progress bar --%>
+      <%= if total > 0 do %>
+        <% pct = Float.round(completed / total * 100, 1) %>
+        <div class="w-full bg-base-300 rounded-full h-1.5 mb-4 overflow-hidden">
+          <div
+            class="bg-primary h-1.5 rounded-full transition-all duration-500"
+            style={"width: #{pct}%;"}
+          >
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- History summary --%>
+      <%= if completed > 0 do %>
+        <p class="text-xs text-base-content/40 mb-3">
+          {completed} item{if completed == 1, do: "", else: "s"} completed
+        </p>
+      <% end %>
+
+      <%!-- Upcoming queue items (read-only) --%>
+      <%= if @lobby.queue != [] do %>
+        <div class="space-y-1.5">
+          <p class="text-xs text-base-content/40 uppercase tracking-wider mb-2">Up next</p>
+          <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
+            <div class="flex items-center gap-3 bg-base-100 rounded-lg px-3 py-2 border border-base-300">
+              <span class="text-xs text-base-content/30 font-mono tabular-nums w-5 shrink-0 text-right">
+                {current_position + index + 1}.
+              </span>
+              <span class="flex-1 text-sm text-base-content/70 truncate">{item.title}</span>
+              <%= if item.context_url do %>
+                <a
+                  href={item.context_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="shrink-0 text-base-content/30 hover:text-primary transition-colors"
+                  title="View context"
+                >
+                  <.icon name="hero-arrow-top-right-on-square-micro" class="size-3.5" />
+                </a>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%= if @lobby.queue == [] && completed == 0 do %>
+        <p class="text-sm text-base-content/40 text-center py-2">No items queued yet.</p>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp elapsed_seconds(nil), do: 0
+
+  defp elapsed_seconds(opened_at) do
+    DateTime.diff(DateTime.utc_now(), opened_at, :second)
+  end
+
+  defp format_elapsed(seconds) when seconds < 60, do: "Open for #{seconds}s"
+
+  defp format_elapsed(seconds) when seconds < 3_600 do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    "Open for #{m}m #{s}s"
+  end
+
+  defp format_elapsed(seconds) do
+    h = div(seconds, 3_600)
+    m = div(rem(seconds, 3_600), 60)
+    "Open for #{h}h #{m}m"
+  end
+
+  defp format_duration(nil), do: nil
+
+  defp format_duration(seconds) when seconds < 60, do: "#{seconds}s"
+
+  defp format_duration(seconds) do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    if s == 0, do: "#{m}m", else: "#{m}m #{s}s"
+  end
+
+  defp build_csv(history) do
+    header = "Item,Avg,Median,Min,Max,Consensus,Votes\r\n"
+
+    rows =
+      Enum.map(history, fn entry ->
+        item_title = csv_escape(entry.item && entry.item.title || "")
+        avg = entry.stats.avg || ""
+        median = entry.stats.median || ""
+        min = entry.stats.min || ""
+        max = entry.stats.max || ""
+        consensus = if entry.stats.consensus?, do: "Yes", else: "No"
+
+        votes =
+          entry.votes
+          |> Map.values()
+          |> Enum.join(" | ")
+          |> csv_escape()
+
+        "#{item_title},#{avg},#{median},#{min},#{max},#{consensus},#{votes}\r\n"
+      end)
+
+    IO.iodata_to_binary([header | rows])
+  end
+
+  defp csv_escape(value) do
+    str = to_string(value)
+
+    if String.contains?(str, [",", "\"", "\r", "\n"]) do
+      "\"#{String.replace(str, "\"", "\"\"")}\""
+    else
+      str
+    end
+  end
+
+  defp build_json(history) do
+    data =
+      Enum.map(history, fn entry ->
+        %{
+          item: %{
+            id: entry.item && entry.item.id,
+            title: entry.item && entry.item.title,
+            context_url: entry.item && entry.item.context_url
+          },
+          stats: %{
+            avg: entry.stats.avg,
+            median: entry.stats.median,
+            min: entry.stats.min,
+            max: entry.stats.max,
+            consensus: entry.stats.consensus?
+          },
+          votes: entry.votes
+        }
+      end)
+
+    Jason.encode!(data, pretty: true)
+  end
 
   defp get_presence_meta(presence, user_id) do
     case Map.get(presence, user_id) do

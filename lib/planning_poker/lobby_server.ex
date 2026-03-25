@@ -58,6 +58,18 @@ defmodule PlanningPoker.LobbyServer do
   def toggle_auto_reveal(lobby_id, creator_id),
     do: call(lobby_id, {:toggle_auto_reveal, creator_id})
 
+  def toggle_members_queue(lobby_id, creator_id),
+    do: call(lobby_id, {:toggle_members_queue, creator_id})
+
+  def transfer_host(lobby_id, from_id, to_id),
+    do: call(lobby_id, {:transfer_host, from_id, to_id})
+
+  def accept_host_transfer(lobby_id, user_id),
+    do: call(lobby_id, {:accept_host_transfer, user_id})
+
+  def decline_host_transfer(lobby_id, user_id),
+    do: call(lobby_id, {:decline_host_transfer, user_id})
+
   def throw_emoji(lobby_id, from_id, to_id, emoji),
     do: cast(lobby_id, {:throw_emoji, from_id, to_id, emoji})
 
@@ -77,6 +89,7 @@ defmodule PlanningPoker.LobbyServer do
 
   @impl true
   def init(attrs) do
+    attrs = Map.put_new(attrs, :opened_at, DateTime.utc_now())
     {:ok, struct!(Lobby, attrs)}
   end
 
@@ -125,7 +138,7 @@ defmodule PlanningPoker.LobbyServer do
       {:reply, {:error, :not_creator}, lobby}
     else
       queue = Enum.reject(lobby.queue, &(&1.id == item.id))
-      lobby = %{lobby | state: :voting, current_item: item, votes: %{}, queue: queue}
+      lobby = %{lobby | state: :voting, current_item: item, votes: %{}, queue: queue, voting_started_at: DateTime.utc_now()}
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
@@ -176,8 +189,8 @@ defmodule PlanningPoker.LobbyServer do
     end
   end
 
-  def handle_call({:add_to_queue, creator_id, item}, _from, lobby) do
-    if lobby.creator_id != creator_id do
+  def handle_call({:add_to_queue, user_id, item}, _from, lobby) do
+    if lobby.creator_id != user_id and not lobby.members_can_add_to_queue do
       {:reply, {:error, :not_creator}, lobby}
     else
       lobby = %{lobby | queue: lobby.queue ++ [item]}
@@ -202,6 +215,51 @@ defmodule PlanningPoker.LobbyServer do
     else
       lobby = %{lobby | auto_reveal: not lobby.auto_reveal}
       broadcast(lobby, {:lobby_updated, lobby})
+      {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:toggle_members_queue, creator_id}, _from, lobby) do
+    if lobby.creator_id != creator_id do
+      {:reply, {:error, :not_creator}, lobby}
+    else
+      lobby = %{lobby | members_can_add_to_queue: not lobby.members_can_add_to_queue}
+      broadcast(lobby, {:lobby_updated, lobby})
+      {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:transfer_host, from_id, to_id}, _from, lobby) do
+    cond do
+      lobby.creator_id != from_id ->
+        {:reply, {:error, :not_creator}, lobby}
+
+      not Map.has_key?(lobby.participants, to_id) ->
+        {:reply, {:error, :not_participant}, lobby}
+
+      true ->
+        lobby = %{lobby | pending_host_transfer: to_id}
+        broadcast(lobby, {:host_transfer_offered, to_id})
+        {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:accept_host_transfer, user_id}, _from, lobby) do
+    if lobby.pending_host_transfer != user_id do
+      {:reply, {:error, :not_offered}, lobby}
+    else
+      lobby = %{lobby | creator_id: user_id, pending_host_transfer: nil}
+      broadcast(lobby, {:lobby_updated, lobby})
+      {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:decline_host_transfer, user_id}, _from, lobby) do
+    if lobby.pending_host_transfer != user_id do
+      {:reply, {:error, :not_offered}, lobby}
+    else
+      lobby = %{lobby | pending_host_transfer: nil}
+      broadcast(lobby, {:host_transfer_declined, user_id})
       {:reply, {:ok, lobby}, lobby}
     end
   end
@@ -251,7 +309,15 @@ defmodule PlanningPoker.LobbyServer do
 
   defp do_reveal(lobby) do
     stats = Lobby.compute_stats(lobby.votes)
-    entry = %{item: lobby.current_item, votes: lobby.votes, stats: stats}
+
+    duration_seconds =
+      if lobby.voting_started_at do
+        DateTime.diff(DateTime.utc_now(), lobby.voting_started_at, :second)
+      else
+        nil
+      end
+
+    entry = %{item: lobby.current_item, votes: lobby.votes, stats: stats, duration_seconds: duration_seconds}
     %{lobby | state: :revealed, history: [entry | lobby.history]}
   end
 

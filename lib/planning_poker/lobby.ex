@@ -3,14 +3,18 @@ defmodule PlanningPoker.Lobby do
     :id,
     :name,
     :creator_id,
+    opened_at: nil,
     planning_system: :fibonacci,
     auto_reveal: false,
+    members_can_add_to_queue: false,
     state: :waiting,
     current_item: nil,
+    voting_started_at: nil,
     votes: %{},
     queue: [],
     history: [],
-    participants: %{}
+    participants: %{},
+    pending_host_transfer: nil
   ]
 
   @card_systems %{
