@@ -12,7 +12,8 @@
       "WebFetch(domain:hexdocs.pm)",
       "WebFetch(domain:fly.io)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:hub.docker.com)"
+      "WebFetch(domain:hub.docker.com)",
+      "Bash(mix deps.get)"
     ]
   }
 }

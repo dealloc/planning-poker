@@ -27,9 +27,10 @@ defmodule PlanningPoker.Lobby do
   def cards(system), do: Map.fetch!(@card_systems, system)
 
   def compute_stats(votes) do
+    all_values = Map.values(votes)
+
     numeric_values =
-      votes
-      |> Map.values()
+      all_values
       |> Enum.flat_map(fn v ->
         case Float.parse(to_string(v)) do
           {n, ""} -> [n]
@@ -37,10 +38,11 @@ defmodule PlanningPoker.Lobby do
         end
       end)
 
-    distribution = votes |> Map.values() |> Enum.frequencies()
+    distribution = Enum.frequencies(all_values)
+    clarification_count = Enum.count(all_values, &(&1 == "?"))
 
     if Enum.empty?(numeric_values) do
-      %{avg: nil, median: nil, min: nil, max: nil, consensus?: false, distribution: distribution}
+      %{avg: nil, median: nil, min: nil, max: nil, consensus?: false, distribution: distribution, clarification_count: clarification_count}
     else
       sorted = Enum.sort(numeric_values)
       count = length(sorted)
@@ -54,8 +56,6 @@ defmodule PlanningPoker.Lobby do
           Enum.at(sorted, div(count, 2))
         end
 
-      all_values = Map.values(votes)
-
       consensus? =
         length(all_values) > 0 and
           length(Enum.uniq(numeric_values)) == 1 and
@@ -67,7 +67,8 @@ defmodule PlanningPoker.Lobby do
         min: Enum.min(sorted),
         max: Enum.max(sorted),
         consensus?: consensus?,
-        distribution: distribution
+        distribution: distribution,
+        clarification_count: clarification_count
       }
     end
   end

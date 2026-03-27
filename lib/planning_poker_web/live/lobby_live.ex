@@ -57,6 +57,9 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:page_title, lobby.name)
               |> assign(:pending_host_transfer, lobby.pending_host_transfer)
               |> assign(:elapsed_seconds, elapsed_seconds(lobby.opened_at))
+              |> assign(:editing_note_id, nil)
+              |> assign(:show_qr_modal, false)
+              |> assign(:qr_svg, nil)
 
             if connected?(socket), do: Process.send_after(self(), :tick, 1_000)
 
@@ -280,6 +283,41 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, push_event(socket, "copy_to_clipboard", %{text: lobby_url})}
   end
 
+  def handle_event("toggle_spectator", _params, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    participant = Map.get(lobby.participants, uid)
+    currently_spectating = participant && participant.role == :spectator
+    LobbyServer.set_spectator(lobby.id, uid, not currently_spectating)
+    {:noreply, socket}
+  end
+
+  def handle_event("edit_note", %{"id" => item_id}, socket) do
+    {:noreply, assign(socket, :editing_note_id, item_id)}
+  end
+
+  def handle_event("cancel_note", _params, socket) do
+    {:noreply, assign(socket, :editing_note_id, nil)}
+  end
+
+  def handle_event("save_note", %{"item_id" => item_id, "note" => note}, socket) do
+    %{lobby: lobby} = socket.assigns
+    note_value = if String.trim(note) == "", do: nil, else: String.trim(note)
+    LobbyServer.update_history_note(lobby.id, item_id, note_value)
+    {:noreply, assign(socket, :editing_note_id, nil)}
+  end
+
+  def handle_event("show_qr_code", _params, socket) do
+    lobby_url = url(~p"/lobby/#{socket.assigns.lobby.id}")
+    {:ok, svg} = lobby_url
+      |> QRCode.create(:medium)
+      |> QRCode.render(:svg, %QRCode.Render.SvgSettings{scale: 5})
+    {:noreply, assign(socket, show_qr_modal: true, qr_svg: svg)}
+  end
+
+  def handle_event("close_qr_modal", _params, socket) do
+    {:noreply, assign(socket, show_qr_modal: false)}
+  end
+
   # ── PubSub messages ──────────────────────────────────────────────────────────
 
   @impl true
@@ -427,8 +465,9 @@ defmodule PlanningPokerWeb.LobbyLive do
 
               <%!-- Live vote progress counter --%>
               <%= if @lobby.state == :voting do %>
+                <% voter_count = Enum.count(@lobby.participants, fn {_id, p} -> p.role == :voter end) %>
                 <span class="text-xs text-base-content/50">
-                  {map_size(@lobby.votes)}/{map_size(@lobby.participants)} voted
+                  {map_size(@lobby.votes)}/{voter_count} voted
                 </span>
               <% end %>
 
@@ -483,6 +522,15 @@ defmodule PlanningPokerWeb.LobbyLive do
                 {~p"/lobby/#{@lobby.id}"}
               </span>
               <span class="text-xs font-medium text-base-content/60 sm:hidden">Copy link</span>
+            </button>
+            <button
+              phx-click="show_qr_code"
+              class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
+              title="Show QR code for this lobby"
+              aria-label="Show QR code"
+            >
+              <.icon name="hero-qr-code-micro" class="size-3.5 text-base-content/50" />
+              <span class="text-xs font-medium text-base-content/60 hidden sm:inline">QR</span>
             </button>
             <button
               onclick="document.getElementById('shortcuts-modal').classList.toggle('hidden')"
@@ -573,6 +621,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                     Consensus! Everyone voted <span class="font-mono">{stats.avg}</span>
                   </div>
                 <% end %>
+                <%= if stats.clarification_count > 0 do %>
+                  <div class="flex items-center gap-2 mb-4 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+                    <.icon name="hero-question-mark-circle-micro" class="size-4 flex-shrink-0" />
+                    {stats.clarification_count} participant{if stats.clarification_count == 1, do: "", else: "s"} requested clarification — discuss before re-voting.
+                  </div>
+                <% end %>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                   <%= if stats.avg do %>
                     <div class="text-center bg-base-100 rounded-lg p-3">
@@ -608,13 +662,15 @@ defmodule PlanningPokerWeb.LobbyLive do
                       "flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
                       tier == :outlier && "bg-error/15 border-error/40",
                       tier == :near_consensus && "bg-success/15 border-success/40",
-                      tier == :middle && "bg-base-100 border-base-300"
+                      tier == :middle && "bg-base-100 border-base-300",
+                      tier == :clarification && "bg-warning/15 border-warning/40"
                     ]}>
                       <span class={[
                         "font-mono font-semibold",
                         tier == :outlier && "text-error",
                         tier == :near_consensus && "text-success",
-                        tier == :middle && "text-base-content"
+                        tier == :middle && "text-base-content",
+                        tier == :clarification && "text-warning"
                       ]}>
                         {card}
                       </span>
@@ -622,7 +678,8 @@ defmodule PlanningPokerWeb.LobbyLive do
                         "text-xs",
                         tier == :outlier && "text-error/70",
                         tier == :near_consensus && "text-success/70",
-                        tier == :middle && "text-base-content/50"
+                        tier == :middle && "text-base-content/50",
+                        tier == :clarification && "text-warning/70"
                       ]}>
                         ×{count}
                       </span>
@@ -649,7 +706,8 @@ defmodule PlanningPokerWeb.LobbyLive do
                               "w-full rounded-t-md transition-all",
                               tier == :outlier && "bg-error/60",
                               tier == :near_consensus && "bg-success/60",
-                              tier == :middle && "bg-primary/40"
+                              tier == :middle && "bg-primary/40",
+                              tier == :clarification && "bg-warning/60"
                             ]}
                             style={"height: #{Float.round(count / max_count * 100, 1)}%;"}
                           >
@@ -671,6 +729,15 @@ defmodule PlanningPokerWeb.LobbyLive do
 
             <%!-- Voting cards --%>
             <%= if @lobby.state == :voting do %>
+              <% me = Map.get(@lobby.participants, @current_user_id) %>
+              <% is_spectator = me && me.role == :spectator %>
+              <%= if is_spectator do %>
+                <div class="mb-6 flex flex-col items-center justify-center py-8 text-center rounded-xl border border-base-300 bg-base-200">
+                  <.icon name="hero-eye-micro" class="size-8 text-base-content/30 mb-3" />
+                  <p class="text-base font-medium text-base-content/50">You are watching this round</p>
+                  <p class="text-sm text-base-content/40 mt-1">Toggle spectator mode to vote</p>
+                </div>
+              <% else %>
               <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
               <div class="mb-6">
                 <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
@@ -688,7 +755,10 @@ defmodule PlanningPokerWeb.LobbyLive do
                           do:
                             "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105 card-select-glow",
                           else:
-                            "bg-base-200 border-base-300 text-base-content hover:border-primary/50"
+                            if(card == "?",
+                              do: "bg-warning/10 border-warning/40 text-warning hover:border-warning/70",
+                              else: "bg-base-200 border-base-300 text-base-content hover:border-primary/50"
+                            )
                         )
                       ]}
                     >
@@ -728,6 +798,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <% end %>
                 </p>
               </div>
+              <% end %>
             <% end %>
 
             <%!-- Waiting state: creator controls --%>
@@ -947,8 +1018,10 @@ defmodule PlanningPokerWeb.LobbyLive do
                 </div>
                 <div class="space-y-3">
                   <%= for entry <- @lobby.history do %>
+                    <% entry_item_id = entry.item && entry.item.id %>
+                    <% is_editing_note = @editing_note_id == entry_item_id %>
                     <div
-                      id={"history-#{entry.item && entry.item.id}"}
+                      id={"history-#{entry_item_id}"}
                       class="bg-base-200 rounded-xl px-5 py-4 border border-base-300"
                     >
                       <div class="flex items-center justify-between gap-4">
@@ -974,12 +1047,47 @@ defmodule PlanningPokerWeb.LobbyLive do
                               ✓ Consensus
                             </span>
                           <% end %>
+                          <%= if not is_editing_note do %>
+                            <button
+                              phx-click="edit_note"
+                              phx-value-id={entry_item_id}
+                              class="text-base-content/30 hover:text-base-content/60 transition-colors cursor-pointer"
+                              title="Add note"
+                              aria-label="Add note"
+                            >
+                              <.icon name="hero-pencil-square-micro" class="size-3.5" />
+                            </button>
+                          <% end %>
                         </div>
                       </div>
+                      <%!-- Note display / edit --%>
+                      <%= if is_editing_note do %>
+                        <form phx-submit="save_note" class="mt-3">
+                          <input type="hidden" name="item_id" value={entry_item_id} />
+                          <textarea
+                            name="note"
+                            rows="2"
+                            placeholder="Add a note for this item…"
+                            class="w-full text-sm rounded-lg border border-base-300 bg-base-100 px-3 py-2 resize-none focus:outline-none focus:border-primary/50"
+                            autofocus
+                          >{entry[:note]}</textarea>
+                          <div class="flex gap-2 mt-2">
+                            <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                            <button type="button" phx-click="cancel_note" class="btn btn-ghost btn-xs">Cancel</button>
+                          </div>
+                        </form>
+                      <% else %>
+                        <%= if entry[:note] do %>
+                          <p class="mt-2 text-xs text-base-content/60 italic border-l-2 border-base-300 pl-2">
+                            {entry[:note]}
+                          </p>
+                        <% end %>
+                      <% end %>
                     </div>
                   <% end %>
                 </div>
               </div>
+              <.session_stats_panel history={@lobby.history} opened_at={@lobby.opened_at} />
             <% end %>
           </div>
 
@@ -1002,6 +1110,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <% presence_meta = get_presence_meta(@presence, pid) %>
                 <% is_me = pid == @current_user_id %>
                 <% is_creator = pid == @lobby.creator_id %>
+                <% is_spectator = participant.role == :spectator %>
                 <% has_voted = Map.has_key?(@lobby.votes, pid) %>
                 <% vote_value = Map.get(@lobby.votes, pid) %>
 
@@ -1058,12 +1167,19 @@ defmodule PlanningPokerWeb.LobbyLive do
                           you
                         </span>
                       <% end %>
+                      <%= if is_spectator do %>
+                        <span class="text-[10px] bg-base-300 text-base-content/40 px-1.5 py-0.5 rounded font-medium uppercase tracking-wide flex items-center gap-0.5">
+                          <.icon name="hero-eye-micro" class="size-2.5" /> watching
+                        </span>
+                      <% end %>
                     </div>
                   </div>
 
                   <%!-- Vote status --%>
                   <div class="flex-shrink-0">
                     <%= cond do %>
+                      <% is_spectator -> %>
+                        <div class="w-8 h-11"></div>
                       <% @lobby.state == :voting && has_voted -> %>
                         <div class="w-8 h-11 rounded bg-primary/20 border-2 border-primary/40 flex items-center justify-center">
                           <.icon name="hero-check-micro" class="size-3 text-primary" />
@@ -1071,6 +1187,10 @@ defmodule PlanningPokerWeb.LobbyLive do
                       <% @lobby.state == :voting && not has_voted -> %>
                         <div class="w-8 h-11 rounded bg-base-300/50 border-2 border-base-300 flex items-center justify-center">
                           <span class="text-base-content/20 text-xs">?</span>
+                        </div>
+                      <% @lobby.state == :revealed && vote_value == "?" -> %>
+                        <div class="w-8 h-11 rounded bg-warning/15 border-2 border-warning/40 flex items-center justify-center font-bold text-sm text-warning">
+                          {vote_value}
                         </div>
                       <% @lobby.state == :revealed && vote_value -> %>
                         <div class="w-8 h-11 rounded bg-base-100 border-2 border-base-300 flex items-center justify-center font-bold text-sm text-base-content">
@@ -1132,12 +1252,56 @@ defmodule PlanningPokerWeb.LobbyLive do
                 </div>
               <% end %>
             </div>
+
+            <%!-- Spectator toggle button --%>
+            <% me = Map.get(@lobby.participants, @current_user_id) %>
+            <% i_am_spectator = me && me.role == :spectator %>
+            <div class="mt-3">
+              <button
+                phx-click="toggle_spectator"
+                class={[
+                  "w-full flex items-center justify-center gap-2 text-xs rounded-lg px-3 py-2 border transition-colors cursor-pointer",
+                  if(i_am_spectator,
+                    do: "bg-base-300 border-base-400 text-base-content/70 hover:bg-base-200",
+                    else: "bg-base-200 border-base-300 text-base-content/50 hover:bg-base-300"
+                  )
+                ]}
+              >
+                <.icon name="hero-eye-micro" class="size-3.5" />
+                {if i_am_spectator, do: "Stop watching (join voting)", else: "Watch only (spectate)"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+      <%!-- QR Code Modal --%>
+      <%= if @show_qr_modal do %>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          phx-click="close_qr_modal"
+        >
+          <div class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-xs mx-4" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-5">
+              <h2 class="text-lg font-bold text-base-content">Join via QR Code</h2>
+              <button phx-click="close_qr_modal" class="btn btn-ghost btn-sm btn-circle" aria-label="Close">
+                <.icon name="hero-x-mark-micro" class="size-4" />
+              </button>
+            </div>
+            <div class="flex flex-col items-center gap-4">
+              <div class="rounded-lg overflow-hidden bg-white p-2 w-48 h-48 flex items-center justify-center [&>svg]:max-w-full [&>svg]:h-auto">
+                <%= Phoenix.HTML.raw(@qr_svg) %>
+              </div>
+              <p class="text-xs font-mono text-base-content/60 break-all text-center select-all">
+                {url(~p"/lobby/#{@lobby.id}")}
+              </p>
+            </div>
+          </div>
+        </div>
+      <% end %>
       <%!-- Keyboard Shortcuts Modal --%>
       <div
         id="shortcuts-modal"
+        phx-update="ignore"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
         onclick="if(event.target===this) this.classList.add('hidden')"
       >
@@ -1362,6 +1526,42 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   # ── Helpers ──────────────────────────────────────────────────────────────────
 
+  attr :history, :list, required: true
+  attr :opened_at, :any, required: true
+
+  defp session_stats_panel(assigns) do
+    assigns = assign(assigns, :stats, session_stats(assigns.history, assigns.opened_at))
+    ~H"""
+    <%= if @stats.total_items > 0 do %>
+      <div class="mt-6 bg-base-200 rounded-xl px-5 py-4 border border-base-300">
+        <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">Session Stats</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-base-content">{@stats.total_items}</div>
+            <div class="text-xs text-base-content/50 mt-0.5">Items estimated</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-success">{@stats.consensus_count}</div>
+            <div class="text-xs text-base-content/50 mt-0.5">Consensus</div>
+          </div>
+          <%= if @stats.avg_duration do %>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-base-content">{format_session_time(@stats.avg_duration)}</div>
+              <div class="text-xs text-base-content/50 mt-0.5">Avg per item</div>
+            </div>
+          <% end %>
+          <%= if @stats.session_seconds do %>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-base-content">{format_session_time(@stats.session_seconds)}</div>
+              <div class="text-xs text-base-content/50 mt-0.5">Session time</div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
   attr :lobby, :map, required: true
   attr :show_queue_form, :boolean, default: false
   attr :queue_form, :map, default: nil
@@ -1576,6 +1776,8 @@ defmodule PlanningPokerWeb.LobbyLive do
     end
   end
 
+  defp vote_tier("?", _cards_ordered, _median), do: :clarification
+
   defp vote_tier(card, cards_ordered, median) do
     median_card = snap_median_to_card(median, cards_ordered)
 
@@ -1596,6 +1798,53 @@ defmodule PlanningPokerWeb.LobbyLive do
           true -> :outlier
         end
     end
+  end
+
+  defp format_session_time(seconds) when seconds < 60, do: "#{seconds}s"
+
+  defp format_session_time(seconds) when seconds < 3_600 do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    if s == 0, do: "#{m}m", else: "#{m}m #{s}s"
+  end
+
+  defp format_session_time(seconds) do
+    h = div(seconds, 3_600)
+    m = div(rem(seconds, 3_600), 60)
+    if m == 0, do: "#{h}h", else: "#{h}h #{m}m"
+  end
+
+  defp session_stats(history, opened_at) do
+    total_items = length(history)
+    consensus_count = Enum.count(history, fn e -> e.stats.consensus? end)
+
+    all_durations = Enum.flat_map(history, fn e ->
+      case e[:duration_seconds] do
+        nil -> []
+        d -> [d]
+      end
+    end)
+
+    avg_duration =
+      if all_durations != [] do
+        round(Enum.sum(all_durations) / length(all_durations))
+      else
+        nil
+      end
+
+    session_seconds =
+      if opened_at do
+        DateTime.diff(DateTime.utc_now(), opened_at, :second)
+      else
+        nil
+      end
+
+    %{
+      total_items: total_items,
+      consensus_count: consensus_count,
+      avg_duration: avg_duration,
+      session_seconds: session_seconds
+    }
   end
 
   defp snap_median_to_card(nil, _cards), do: nil

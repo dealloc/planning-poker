@@ -73,6 +73,12 @@ defmodule PlanningPoker.LobbyServer do
   def throw_emoji(lobby_id, from_id, to_id, emoji),
     do: cast(lobby_id, {:throw_emoji, from_id, to_id, emoji})
 
+  def set_spectator(lobby_id, user_id, spectating?),
+    do: call(lobby_id, {:set_spectator, user_id, spectating?})
+
+  def update_history_note(lobby_id, item_id, note),
+    do: call(lobby_id, {:update_history_note, item_id, note})
+
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
   def start_link(attrs) do
@@ -264,6 +270,35 @@ defmodule PlanningPoker.LobbyServer do
     end
   end
 
+  def handle_call({:set_spectator, user_id, spectating?}, _from, lobby) do
+    case Map.get(lobby.participants, user_id) do
+      nil ->
+        {:reply, {:error, :not_participant}, lobby}
+
+      participant ->
+        role = if spectating?, do: :spectator, else: :voter
+        updated = %{participant | role: role}
+        lobby = %{lobby | participants: Map.put(lobby.participants, user_id, updated)}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:update_history_note, item_id, note}, _from, lobby) do
+    history =
+      Enum.map(lobby.history, fn entry ->
+        if entry.item && entry.item.id == item_id do
+          %{entry | note: note}
+        else
+          entry
+        end
+      end)
+
+    lobby = %{lobby | history: history}
+    broadcast(lobby, {:lobby_updated, lobby})
+    {:reply, {:ok, lobby}, lobby}
+  end
+
   @impl true
   def handle_cast({:leave, user_id}, lobby) do
     lobby = %{
@@ -308,7 +343,13 @@ defmodule PlanningPoker.LobbyServer do
   # ── Private ──────────────────────────────────────────────────────────────────
 
   defp do_reveal(lobby) do
-    stats = Lobby.compute_stats(lobby.votes)
+    spectator_ids =
+      lobby.participants
+      |> Enum.filter(fn {_id, p} -> p.role == :spectator end)
+      |> Enum.map(&elem(&1, 0))
+
+    votes = Map.drop(lobby.votes, spectator_ids)
+    stats = Lobby.compute_stats(votes)
 
     duration_seconds =
       if lobby.voting_started_at do
@@ -317,7 +358,7 @@ defmodule PlanningPoker.LobbyServer do
         nil
       end
 
-    entry = %{item: lobby.current_item, votes: lobby.votes, stats: stats, duration_seconds: duration_seconds}
+    entry = %{item: lobby.current_item, votes: votes, stats: stats, duration_seconds: duration_seconds, note: nil}
     %{lobby | state: :revealed, history: [entry | lobby.history]}
   end
 
