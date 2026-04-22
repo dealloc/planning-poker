@@ -48,7 +48,10 @@ defmodule PlanningPokerWeb.Layouts do
     <main class="px-4 py-20 sm:px-6 lg:px-8">
       <div class={@inner_class}>{render_slot(@inner_block)}</div>
     </main>
-     <.flash_group flash={@flash} />
+    <footer class="border-t border-base-300 py-4 text-center text-xs text-base-content/40">
+      Built with 💙 by <a href="https://www.elixus.be" target="_blank" rel="noopener noreferrer" class="hover:text-base-content/70 transition-colors">Elixus</a>
+    </footer>
+    <.flash_group flash={@flash} />
     """
   end
 
