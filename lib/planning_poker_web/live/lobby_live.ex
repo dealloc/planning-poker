@@ -237,6 +237,16 @@ defmodule PlanningPokerWeb.LobbyLive do
            mime_type: "application/json"
          })}
 
+      "markdown" ->
+        content = build_markdown(history)
+
+        {:noreply,
+         push_event(socket, "download_file", %{
+           filename: "#{filename}.md",
+           content: content,
+           mime_type: "text/markdown"
+         })}
+
       _ ->
         {:noreply, socket}
     end
@@ -1014,6 +1024,14 @@ defmodule PlanningPokerWeb.LobbyLive do
                       <.icon name="hero-arrow-down-tray-micro" class="size-3.5 text-base-content/50" />
                       Export JSON
                     </button>
+                    <button
+                      phx-click="export_history"
+                      phx-value-format="markdown"
+                      class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer text-xs font-medium text-base-content/70"
+                    >
+                      <.icon name="hero-arrow-down-tray-micro" class="size-3.5 text-base-content/50" />
+                      Export Markdown
+                    </button>
                   </div>
                 </div>
                 <div class="space-y-3">
@@ -1767,6 +1785,25 @@ defmodule PlanningPokerWeb.LobbyLive do
       end)
 
     Jason.encode!(data, pretty: true)
+  end
+
+  defp build_markdown(history) do
+    header = "# Planning Poker History\n\n| Item | Avg | Median | Min | Max | Consensus | Votes |\n|------|-----|--------|-----|-----|-----------|-------|\n"
+
+    rows =
+      Enum.map(history, fn entry ->
+        title = (entry.item && entry.item.title || "") |> String.replace("|", "\\|")
+        avg = entry.stats.avg || ""
+        median = entry.stats.median || ""
+        min = entry.stats.min || ""
+        max = entry.stats.max || ""
+        consensus = if entry.stats.consensus?, do: "Yes", else: "No"
+        votes = entry.votes |> Map.values() |> Enum.join(", ")
+
+        "| #{title} | #{avg} | #{median} | #{min} | #{max} | #{consensus} | #{votes} |\n"
+      end)
+
+    IO.iodata_to_binary([header | rows])
   end
 
   defp get_presence_meta(presence, user_id) do
