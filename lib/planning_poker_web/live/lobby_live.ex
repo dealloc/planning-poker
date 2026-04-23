@@ -49,6 +49,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:current_user_id, user_id)
               |> assign(:presence, presence)
               |> assign(:my_vote, Map.get(lobby.votes, user_id))
+              |> assign(:my_vote_note, Map.get(lobby.vote_notes, user_id))
               |> assign(:show_queue_form, false)
               |> assign(:show_start_form, false)
               |> assign(:throw_emojis, @throw_emojis)
@@ -97,6 +98,13 @@ defmodule PlanningPokerWeb.LobbyLive do
       {:ok, _lobby} -> {:noreply, assign(socket, :my_vote, card)}
       {:error, _} -> {:noreply, socket}
     end
+  end
+
+  def handle_event("save_vote_note", %{"note" => note}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    note_value = if String.trim(note) == "", do: nil, else: String.trim(note)
+    LobbyServer.add_vote_note(lobby.id, uid, note_value)
+    {:noreply, assign(socket, :my_vote_note, note_value)}
   end
 
   def handle_event("reveal", _params, socket) do
@@ -386,6 +394,7 @@ defmodule PlanningPokerWeb.LobbyLive do
       socket
       |> assign(:lobby, lobby)
       |> assign(:my_vote, my_vote)
+      |> assign(:my_vote_note, if(my_vote == nil, do: nil, else: socket.assigns.my_vote_note))
       |> assign(:pending_host_transfer, pending)
 
     socket =
@@ -881,6 +890,33 @@ defmodule PlanningPokerWeb.LobbyLive do
                     </div>
                   </div>
                 <% end %>
+                <%!-- Vote notes --%>
+                <% notes_to_show = @lobby.vote_notes |> Enum.filter(fn {_, n} -> n != nil end) |> Enum.sort_by(fn {uid, _} -> Map.get(@lobby.votes, uid) end) %>
+                <%= if notes_to_show != [] do %>
+                  <div class="mt-5 pt-5 border-t border-base-300">
+                    <p class="text-xs text-base-content/40 uppercase tracking-wider mb-3">
+                      Vote Notes
+                    </p>
+                    <div class="space-y-2">
+                      <%= for {uid, note} <- notes_to_show do %>
+                        <% voter = Map.get(@lobby.participants, uid) %>
+                        <% voter_vote = Map.get(@lobby.votes, uid) %>
+                        <%= if voter do %>
+                          <div class="flex items-start gap-3 bg-base-100 rounded-lg px-3 py-2.5 border border-base-300">
+                            <span class="text-xl leading-none flex-shrink-0 mt-0.5">{voter.avatar}</span>
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-medium text-base-content/70">{voter.name}</span>
+                                <span class="font-mono text-xs bg-base-200 border border-base-300 px-1.5 py-0.5 rounded text-base-content/70">{voter_vote}</span>
+                              </div>
+                              <p class="text-sm text-base-content/80 leading-snug">{note}</p>
+                            </div>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             <% end %>
 
@@ -954,6 +990,39 @@ defmodule PlanningPokerWeb.LobbyLive do
                     Pick your estimate. You can change it anytime before reveal.
                   <% end %>
                 </p>
+                <%!-- Vote note input (shown once a card is selected) --%>
+                <%= if @my_vote do %>
+                  <form phx-submit="save_vote_note" class="mt-4">
+                    <div class="relative">
+                      <textarea
+                        name="note"
+                        id="vote-note-textarea"
+                        rows="2"
+                        maxlength="500"
+                        placeholder="Add a note or reasoning for your vote (optional)…"
+                        class="w-full text-sm rounded-xl border border-base-300 bg-base-200 px-3 py-2 pr-20 resize-none focus:outline-none focus:border-primary/50 placeholder:text-base-content/30"
+                        phx-hook="CharCounter"
+                        data-counter-target="vote-note-counter"
+                      >{@my_vote_note}</textarea>
+                      <button
+                        type="submit"
+                        class="absolute right-2 bottom-2 btn btn-primary btn-xs"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <div class="flex justify-between mt-1 px-0.5">
+                      <span id="vote-note-counter" class="text-xs text-base-content/30">
+                        {String.length(@my_vote_note || "")} / 500
+                      </span>
+                      <%= if @my_vote_note do %>
+                        <span class="text-xs text-success flex items-center gap-1">
+                          <.icon name="hero-check-circle-micro" class="size-3.5" /> Note saved
+                        </span>
+                      <% end %>
+                    </div>
+                  </form>
+                <% end %>
               </div>
               <% end %>
             <% end %>

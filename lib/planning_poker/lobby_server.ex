@@ -82,6 +82,9 @@ defmodule PlanningPoker.LobbyServer do
   def change_planning_system(lobby_id, creator_id, system),
     do: call(lobby_id, {:change_planning_system, creator_id, system})
 
+  def add_vote_note(lobby_id, user_id, note),
+    do: call(lobby_id, {:add_vote_note, user_id, note})
+
   def change_avatar(lobby_id, user_id, avatar),
     do: cast(lobby_id, {:change_avatar, user_id, avatar})
 
@@ -153,7 +156,7 @@ defmodule PlanningPoker.LobbyServer do
       {:reply, {:error, :not_creator}, lobby}
     else
       queue = Enum.reject(lobby.queue, &(&1.id == item.id))
-      lobby = %{lobby | state: :voting, current_item: item, votes: %{}, queue: queue, voting_started_at: DateTime.utc_now()}
+      lobby = %{lobby | state: :voting, current_item: item, votes: %{}, vote_notes: %{}, queue: queue, voting_started_at: DateTime.utc_now()}
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
@@ -173,7 +176,7 @@ defmodule PlanningPoker.LobbyServer do
     if lobby.creator_id != creator_id do
       {:reply, {:error, :not_creator}, lobby}
     else
-      lobby = %{lobby | state: :waiting, votes: %{}, current_item: nil}
+      lobby = %{lobby | state: :waiting, votes: %{}, vote_notes: %{}, current_item: nil}
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
@@ -183,7 +186,7 @@ defmodule PlanningPoker.LobbyServer do
     if lobby.creator_id != creator_id do
       {:reply, {:error, :not_creator}, lobby}
     else
-      lobby = %{lobby | state: :waiting, votes: %{}, current_item: nil}
+      lobby = %{lobby | state: :waiting, votes: %{}, vote_notes: %{}, current_item: nil}
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
@@ -308,6 +311,25 @@ defmodule PlanningPoker.LobbyServer do
     end
   end
 
+  def handle_call({:add_vote_note, user_id, note}, _from, lobby) do
+    cond do
+      lobby.state not in [:voting, :revealed] ->
+        {:reply, {:error, :not_voting}, lobby}
+
+      not Map.has_key?(lobby.participants, user_id) ->
+        {:reply, {:error, :not_participant}, lobby}
+
+      not Map.has_key?(lobby.votes, user_id) ->
+        {:reply, {:error, :no_vote}, lobby}
+
+      true ->
+        note_value = if is_binary(note) && String.trim(note) == "", do: nil, else: note
+        lobby = %{lobby | vote_notes: Map.put(lobby.vote_notes, user_id, note_value)}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
   def handle_call({:update_history_note, item_id, note}, _from, lobby) do
     history =
       Enum.map(lobby.history, fn entry ->
@@ -419,7 +441,7 @@ defmodule PlanningPoker.LobbyServer do
         nil
       end
 
-    entry = %{item: lobby.current_item, votes: votes, stats: stats, duration_seconds: duration_seconds, note: nil, planning_system: lobby.planning_system}
+    entry = %{item: lobby.current_item, votes: votes, vote_notes: lobby.vote_notes, stats: stats, duration_seconds: duration_seconds, note: nil, planning_system: lobby.planning_system}
     %{lobby | state: :revealed, history: [entry | lobby.history]}
   end
 

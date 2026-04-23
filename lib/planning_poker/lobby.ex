@@ -23,6 +23,7 @@ defmodule PlanningPoker.Lobby do
     current_item: nil,
     voting_started_at: nil,
     votes: %{},
+    vote_notes: %{},
     queue: [],
     history: [],
     participants: %{},
