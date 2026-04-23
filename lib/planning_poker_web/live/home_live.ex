@@ -1,20 +1,13 @@
 defmodule PlanningPokerWeb.HomeLive do
   use PlanningPokerWeb, :live_view
 
-  @avatars ~w(🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐸 🐵 🐙 🦋 🦄)
-
-  @planning_systems [
-    {"Fibonacci (1,2,3,5,8…)", "fibonacci"},
-    {"T-Shirt Sizes (XS–XXL)", "tshirt"},
-    {"Powers of Two (1,2,4,8…)", "powers_of_two"},
-    {"Days (1,2,3,4,5,7…)", "days"}
-  ]
 
   @impl true
   def mount(params, session, socket) do
     user_id = session["user_id"] || generate_id()
     user_name = session["user_name"] || ""
-    user_avatar = session["user_avatar"] || hd(@avatars)
+    avatars = PlanningPoker.Lobby.avatars()
+    user_avatar = session["user_avatar"] || hd(avatars)
 
     join_id = params["join"]
 
@@ -53,8 +46,12 @@ defmodule PlanningPokerWeb.HomeLive do
       |> assign(:join_lobby_preview, join_lobby_preview)
       |> assign(:user_id, user_id)
       |> assign(:selected_avatar, user_avatar)
-      |> assign(:avatars, @avatars)
-      |> assign(:planning_systems, @planning_systems)
+      |> assign(:avatars, avatars)
+      |> assign(:planning_systems,
+        Enum.map(PlanningPoker.Lobby.planning_systems(), fn {sys, label} ->
+          {label, to_string(sys)}
+        end)
+      )
       |> assign(:form, form)
       |> assign(:page_title, "Planning Poker")
 

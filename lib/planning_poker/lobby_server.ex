@@ -82,6 +82,9 @@ defmodule PlanningPoker.LobbyServer do
   def change_planning_system(lobby_id, creator_id, system),
     do: call(lobby_id, {:change_planning_system, creator_id, system})
 
+  def change_avatar(lobby_id, user_id, avatar),
+    do: cast(lobby_id, {:change_avatar, user_id, avatar})
+
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
   def start_link(attrs) do
@@ -341,6 +344,19 @@ defmodule PlanningPoker.LobbyServer do
     )
 
     {:noreply, lobby}
+  end
+
+  def handle_cast({:change_avatar, user_id, avatar}, lobby) do
+    case Map.get(lobby.participants, user_id) do
+      nil ->
+        {:noreply, lobby}
+
+      participant ->
+        updated = %{participant | avatar: avatar}
+        lobby = %{lobby | participants: Map.put(lobby.participants, user_id, updated)}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:noreply, lobby}
+    end
   end
 
   def handle_cast({:reorder_queue, creator_id, ids}, lobby) do

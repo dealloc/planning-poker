@@ -1,4 +1,16 @@
 defmodule PlanningPoker.Lobby do
+  @avatars ~w(🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐸 🐵 🐙 🦋 🦄)
+
+  @planning_systems [
+    {:fibonacci, "Fibonacci (1,2,3,5,8…)"},
+    {:tshirt, "T-Shirt Sizes (XS–XXL)"},
+    {:powers_of_two, "Powers of Two (1,2,4,8…)"},
+    {:days, "Days (1,2,3,4,5,7…)"}
+  ]
+
+  def avatars, do: @avatars
+  def planning_systems, do: @planning_systems
+
   defstruct [
     :id,
     :name,

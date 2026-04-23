@@ -3,13 +3,6 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   alias PlanningPoker.{LobbyServer, Presence}
 
-  @planning_systems [
-    {:fibonacci, "Fibonacci (1,2,3,5,8…)"},
-    {:tshirt, "T-Shirt Sizes (XS–XXL)"},
-    {:powers_of_two, "Powers of Two (1,2,4,8…)"},
-    {:days, "Days (1,2,3,4,5,7…)"}
-  ]
-
   @throw_emojis [
     # Reactions
     "👍", "👎", "🎉", "❤️", "😂", "🤔", "🔥", "💩", "🚀", "⭐",
@@ -67,7 +60,8 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:editing_note_id, nil)
               |> assign(:show_qr_modal, false)
               |> assign(:qr_svg, nil)
-              |> assign(:planning_systems, @planning_systems)
+              |> assign(:planning_systems, PlanningPoker.Lobby.planning_systems())
+              |> assign(:avatars, PlanningPoker.Lobby.avatars())
 
             if connected?(socket), do: Process.send_after(self(), :tick, 1_000)
 
@@ -340,6 +334,17 @@ defmodule PlanningPokerWeb.LobbyLive do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     system = String.to_existing_atom(system_str)
     LobbyServer.change_planning_system(lobby.id, uid, system)
+    {:noreply, socket}
+  end
+
+  def handle_event("change_avatar", %{"avatar" => avatar}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+
+    Presence.update(self(), "lobby:#{lobby.id}", uid, fn meta ->
+      %{meta | avatar: avatar}
+    end)
+
+    LobbyServer.change_avatar(lobby.id, uid, avatar)
     {:noreply, socket}
   end
 
@@ -1202,7 +1207,42 @@ defmodule PlanningPokerWeb.LobbyLive do
                 >
                   <%!-- Avatar + presence indicator --%>
                   <div class="relative flex-shrink-0">
-                    <span class="text-2xl">{participant.avatar}</span>
+                    <%= if is_me do %>
+                      <div class="dropdown">
+                        <button
+                          tabindex="0"
+                          class="text-2xl cursor-pointer hover:opacity-70 transition-opacity leading-none"
+                          title="Change avatar"
+                        >
+                          {participant.avatar}
+                        </button>
+                        <div
+                          tabindex="0"
+                          class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-3 shadow-lg w-56 mt-1"
+                        >
+                          <p class="text-xs text-base-content/50 mb-2 px-1">Change avatar</p>
+                          <div class="grid grid-cols-4 gap-2">
+                            <%= for avatar <- @avatars do %>
+                              <button
+                                phx-click="change_avatar"
+                                phx-value-avatar={avatar}
+                                class={[
+                                  "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150 hover:bg-base-200 hover:scale-110 cursor-pointer",
+                                  if(participant.avatar == avatar,
+                                    do: "bg-primary/20 outline outline-1 outline-primary",
+                                    else: "bg-base-200/50"
+                                  )
+                                ]}
+                              >
+                                {avatar}
+                              </button>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
+                    <% else %>
+                      <span class="text-2xl">{participant.avatar}</span>
+                    <% end %>
                     <span
                       title={
                         if(presence_meta && presence_meta.status == :reading,
