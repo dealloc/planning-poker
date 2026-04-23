@@ -35,3 +35,6 @@ planning_poker-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Ignore LLM tokens
+.claude/settings.local.json
+
