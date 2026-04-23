@@ -3,6 +3,13 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   alias PlanningPoker.{LobbyServer, Presence}
 
+  @planning_systems [
+    {:fibonacci, "Fibonacci (1,2,3,5,8…)"},
+    {:tshirt, "T-Shirt Sizes (XS–XXL)"},
+    {:powers_of_two, "Powers of Two (1,2,4,8…)"},
+    {:days, "Days (1,2,3,4,5,7…)"}
+  ]
+
   @throw_emojis [
     # Reactions
     "👍", "👎", "🎉", "❤️", "😂", "🤔", "🔥", "💩", "🚀", "⭐",
@@ -60,6 +67,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:editing_note_id, nil)
               |> assign(:show_qr_modal, false)
               |> assign(:qr_svg, nil)
+              |> assign(:planning_systems, @planning_systems)
 
             if connected?(socket), do: Process.send_after(self(), :tick, 1_000)
 
@@ -328,6 +336,13 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, show_qr_modal: false)}
   end
 
+  def handle_event("change_planning_system", %{"system" => system_str}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    system = String.to_existing_atom(system_str)
+    LobbyServer.change_planning_system(lobby.id, uid, system)
+    {:noreply, socket}
+  end
+
   # ── PubSub messages ──────────────────────────────────────────────────────────
 
   @impl true
@@ -468,9 +483,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               </span>
 
               <span class="text-xs text-base-content/40">
-                {Atom.to_string(@lobby.planning_system)
-                |> String.replace("_", " ")
-                |> String.capitalize()}
+                {planning_system_label(@lobby.planning_system)}
               </span>
 
               <%!-- Live vote progress counter --%>
@@ -519,6 +532,44 @@ defmodule PlanningPokerWeb.LobbyLive do
               >
                 <.icon name="hero-queue-list-micro" class="size-3.5" /> Member queue
               </button>
+            <% end %>
+
+            <%!-- Voting system picker (host-only, not during voting) --%>
+            <%= if @current_user_id == @lobby.creator_id && @lobby.state != :voting do %>
+              <div class="dropdown dropdown-end">
+                <button
+                  tabindex="0"
+                  class="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors cursor-pointer bg-base-200 border-base-300 text-base-content/60 hover:border-base-400"
+                  title="Change voting system (only between rounds)"
+                >
+                  <.icon name="hero-squares-2x2-micro" class="size-3.5" />
+                  <span class="hidden sm:inline">{planning_system_label(@lobby.planning_system)}</span>
+                  <.icon name="hero-chevron-down-micro" class="size-3" />
+                </button>
+                <div
+                  tabindex="0"
+                  class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-2 shadow-lg w-56 mt-1"
+                >
+                  <p class="text-xs text-base-content/50 uppercase tracking-wider font-medium px-2 py-1 mb-1">
+                    Voting System
+                  </p>
+                  <%= for {system, label} <- @planning_systems do %>
+                    <button
+                      phx-click="change_planning_system"
+                      phx-value-system={system}
+                      class={[
+                        "w-full text-left text-sm rounded-lg px-3 py-2 transition-colors cursor-pointer",
+                        if(system == @lobby.planning_system,
+                          do: "bg-primary/10 text-primary font-medium",
+                          else: "text-base-content/70 hover:bg-base-200"
+                        )
+                      ]}
+                    >
+                      {label}
+                    </button>
+                  <% end %>
+                </div>
+              </div>
             <% end %>
 
             <%!-- Share link --%>
@@ -1035,9 +1086,11 @@ defmodule PlanningPokerWeb.LobbyLive do
                   </div>
                 </div>
                 <div class="space-y-3">
-                  <%= for entry <- @lobby.history do %>
+                  <%= for {entry, index} <- Enum.with_index(@lobby.history) do %>
                     <% entry_item_id = entry.item && entry.item.id %>
                     <% is_editing_note = @editing_note_id == entry_item_id %>
+                    <% prev_entry = Enum.at(@lobby.history, index + 1) %>
+                    <% show_system_badge = prev_entry && entry[:planning_system] && entry[:planning_system] != prev_entry[:planning_system] %>
                     <div
                       id={"history-#{entry_item_id}"}
                       class="bg-base-200 rounded-xl px-5 py-4 border border-base-300"
@@ -1063,6 +1116,11 @@ defmodule PlanningPokerWeb.LobbyLive do
                           <%= if entry.stats.consensus? do %>
                             <span class="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full font-medium">
                               ✓ Consensus
+                            </span>
+                          <% end %>
+                          <%= if show_system_badge do %>
+                            <span class="text-xs bg-base-300 text-base-content/50 px-2 py-0.5 rounded-full font-medium">
+                              {planning_system_label(entry[:planning_system])}
                             </span>
                           <% end %>
                           <%= if not is_editing_note do %>
@@ -1904,6 +1962,14 @@ defmodule PlanningPokerWeb.LobbyLive do
         card_str
     end
   end
+
+  defp planning_system_label(:fibonacci), do: "Fibonacci"
+  defp planning_system_label(:tshirt), do: "T-Shirt"
+  defp planning_system_label(:powers_of_two), do: "Powers of 2"
+  defp planning_system_label(:days), do: "Days"
+
+  defp planning_system_label(system),
+    do: system |> to_string() |> String.replace("_", " ") |> String.capitalize()
 
   defp nilify(""), do: nil
   defp nilify(val), do: val

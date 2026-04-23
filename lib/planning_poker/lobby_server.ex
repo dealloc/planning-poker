@@ -79,6 +79,9 @@ defmodule PlanningPoker.LobbyServer do
   def update_history_note(lobby_id, item_id, note),
     do: call(lobby_id, {:update_history_note, item_id, note})
 
+  def change_planning_system(lobby_id, creator_id, system),
+    do: call(lobby_id, {:change_planning_system, creator_id, system})
+
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
   def start_link(attrs) do
@@ -284,6 +287,21 @@ defmodule PlanningPoker.LobbyServer do
     end
   end
 
+  def handle_call({:change_planning_system, creator_id, system}, _from, lobby) do
+    cond do
+      lobby.creator_id != creator_id ->
+        {:reply, {:error, :not_creator}, lobby}
+
+      lobby.state == :voting ->
+        {:reply, {:error, :voting_in_progress}, lobby}
+
+      true ->
+        lobby = %{lobby | planning_system: system}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
   def handle_call({:update_history_note, item_id, note}, _from, lobby) do
     history =
       Enum.map(lobby.history, fn entry ->
@@ -358,7 +376,7 @@ defmodule PlanningPoker.LobbyServer do
         nil
       end
 
-    entry = %{item: lobby.current_item, votes: votes, stats: stats, duration_seconds: duration_seconds, note: nil}
+    entry = %{item: lobby.current_item, votes: votes, stats: stats, duration_seconds: duration_seconds, note: nil, planning_system: lobby.planning_system}
     %{lobby | state: :revealed, history: [entry | lobby.history]}
   end
 
