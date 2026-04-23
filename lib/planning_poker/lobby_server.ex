@@ -85,6 +85,9 @@ defmodule PlanningPoker.LobbyServer do
   def change_avatar(lobby_id, user_id, avatar),
     do: cast(lobby_id, {:change_avatar, user_id, avatar})
 
+  def update_item_description(lobby_id, creator_id, item_id, description),
+    do: call(lobby_id, {:update_item_description, creator_id, item_id, description})
+
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
   def start_link(attrs) do
@@ -318,6 +321,30 @@ defmodule PlanningPoker.LobbyServer do
     lobby = %{lobby | history: history}
     broadcast(lobby, {:lobby_updated, lobby})
     {:reply, {:ok, lobby}, lobby}
+  end
+
+  def handle_call({:update_item_description, creator_id, item_id, description}, _from, lobby) do
+    if lobby.creator_id != creator_id do
+      {:reply, {:error, :not_creator}, lobby}
+    else
+      description_value = if is_binary(description) && String.trim(description) == "", do: nil, else: description
+
+      lobby =
+        cond do
+          lobby.current_item && lobby.current_item.id == item_id ->
+            %{lobby | current_item: Map.put(lobby.current_item, :description, description_value)}
+
+          true ->
+            queue =
+              Enum.map(lobby.queue, fn item ->
+                if item.id == item_id, do: Map.put(item, :description, description_value), else: item
+              end)
+            %{lobby | queue: queue}
+        end
+
+      broadcast(lobby, {:lobby_updated, lobby})
+      {:reply, {:ok, lobby}, lobby}
+    end
   end
 
   @impl true

@@ -52,12 +52,13 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:show_queue_form, false)
               |> assign(:show_start_form, false)
               |> assign(:throw_emojis, @throw_emojis)
-              |> assign(:start_form, to_form(%{"title" => "", "context_url" => ""}))
-              |> assign(:queue_form, to_form(%{"title" => "", "context_url" => ""}))
+              |> assign(:start_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))
+              |> assign(:queue_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))
               |> assign(:page_title, lobby.name)
               |> assign(:pending_host_transfer, lobby.pending_host_transfer)
               |> assign(:elapsed_seconds, elapsed_seconds(lobby.opened_at))
               |> assign(:editing_note_id, nil)
+              |> assign(:editing_description_id, nil)
               |> assign(:show_qr_modal, false)
               |> assign(:qr_svg, nil)
               |> assign(:planning_systems, PlanningPoker.Lobby.planning_systems())
@@ -129,27 +130,29 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, :my_vote, nil)}
   end
 
-  def handle_event("start_item", %{"title" => title, "context_url" => url}, socket) do
+  def handle_event("start_item", %{"title" => title, "context_url" => url} = params, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
-    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url)}
+    description = nilify(truncate_description(Map.get(params, "description", "")))
+    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url), description: description}
     LobbyServer.start_item(lobby.id, uid, item)
 
     {:noreply,
      socket
      |> assign(:my_vote, nil)
      |> assign(:show_start_form, false)
-     |> assign(:start_form, to_form(%{"title" => "", "context_url" => ""}))}
+     |> assign(:start_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))}
   end
 
-  def handle_event("add_to_queue", %{"title" => title, "context_url" => url}, socket) do
+  def handle_event("add_to_queue", %{"title" => title, "context_url" => url} = params, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
-    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url)}
+    description = nilify(truncate_description(Map.get(params, "description", "")))
+    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url), description: description}
     LobbyServer.add_to_queue(lobby.id, uid, item)
 
     {:noreply,
      socket
      |> assign(:show_queue_form, false)
-     |> assign(:queue_form, to_form(%{"title" => "", "context_url" => ""}))}
+     |> assign(:queue_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))}
   end
 
   def handle_event("remove_from_queue", %{"id" => item_id}, socket) do
@@ -316,6 +319,21 @@ defmodule PlanningPokerWeb.LobbyLive do
     note_value = if String.trim(note) == "", do: nil, else: String.trim(note)
     LobbyServer.update_history_note(lobby.id, item_id, note_value)
     {:noreply, assign(socket, :editing_note_id, nil)}
+  end
+
+  def handle_event("edit_description", %{"id" => item_id}, socket) do
+    {:noreply, assign(socket, :editing_description_id, item_id)}
+  end
+
+  def handle_event("cancel_description", _params, socket) do
+    {:noreply, assign(socket, :editing_description_id, nil)}
+  end
+
+  def handle_event("save_description", %{"item_id" => item_id, "description" => description}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    description_value = truncate_description(description)
+    LobbyServer.update_item_description(lobby.id, uid, item_id, description_value)
+    {:noreply, assign(socket, :editing_description_id, nil)}
   end
 
   def handle_event("show_qr_code", _params, socket) do
@@ -645,6 +663,9 @@ defmodule PlanningPokerWeb.LobbyLive do
           <div class="order-2 lg:order-1">
             <%!-- Current item --%>
             <%= if @lobby.current_item do %>
+              <% item_id = @lobby.current_item.id %>
+              <% description = Map.get(@lobby.current_item, :description) %>
+              <% editing_desc = @editing_description_id == item_id %>
               <div class="bg-base-200 rounded-xl p-6 mb-6 border border-base-300">
                 <div class="flex items-start justify-between gap-4">
                   <div>
@@ -699,6 +720,46 @@ defmodule PlanningPokerWeb.LobbyLive do
                     </div>
                   <% end %>
                 </div>
+                <%!-- Description: full-width below title row --%>
+                <%= if editing_desc && @current_user_id == @lobby.creator_id do %>
+                  <form phx-submit="save_description" class="mt-4">
+                    <input type="hidden" name="item_id" value={item_id} />
+                    <textarea
+                      name="description"
+                      rows="4"
+                      maxlength="2000"
+                      placeholder="Add context, requirements, or acceptance criteria…"
+                      class="w-full text-sm rounded-lg border border-base-300 bg-base-100 px-3 py-2 resize-none focus:outline-none focus:border-primary/50"
+                      phx-hook="CharCounter"
+                      id={"current-item-description-edit-#{item_id}"}
+                      data-counter-target={"current-item-description-counter-#{item_id}"}
+                      autofocus
+                    >{description}</textarea>
+                    <div class="flex items-center justify-between mt-1">
+                      <span id={"current-item-description-counter-#{item_id}"} class="text-xs text-base-content/40">
+                        {String.length(description || "")} / 2000
+                      </span>
+                      <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                        <button type="button" phx-click="cancel_description" class="btn btn-ghost btn-xs">Cancel</button>
+                      </div>
+                    </div>
+                  </form>
+                <% else %>
+                  <%= if description do %>
+                    <p class="mt-4 text-sm text-base-content/70 leading-relaxed whitespace-pre-wrap">{description}</p>
+                  <% end %>
+                  <%= if @current_user_id == @lobby.creator_id do %>
+                    <button
+                      phx-click="edit_description"
+                      phx-value-id={item_id}
+                      class="mt-2 inline-flex items-center gap-1 text-xs text-base-content/40 hover:text-base-content/60 transition-colors cursor-pointer"
+                    >
+                      <.icon name="hero-pencil-square-micro" class="size-3.5" />
+                      {if description, do: "Edit description", else: "Add description"}
+                    </button>
+                  <% end %>
+                <% end %>
               </div>
             <% end %>
 
@@ -941,6 +1002,24 @@ defmodule PlanningPokerWeb.LobbyLive do
                         placeholder="https://…"
                         autocomplete="off"
                       />
+                      <div class="form-control mb-3">
+                        <label class="label pb-1">
+                          <span class="label-text text-sm font-medium">Description (optional)</span>
+                        </label>
+                        <textarea
+                          name="description"
+                          rows="3"
+                          maxlength="2000"
+                          placeholder="Add context, requirements, or acceptance criteria…"
+                          class="textarea textarea-bordered w-full text-sm resize-none"
+                          phx-hook="CharCounter"
+                          id="start-item-description"
+                          data-counter-target="start-item-description-counter"
+                        ></textarea>
+                        <div class="label pt-1">
+                          <span id="start-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                        </div>
+                      </div>
                       <div class="flex gap-2 mt-2">
                         <.button type="submit" class="btn btn-primary btn-sm">Start voting</.button>
                         <.button
@@ -1033,6 +1112,24 @@ defmodule PlanningPokerWeb.LobbyLive do
                         placeholder="https://…"
                         autocomplete="off"
                       />
+                      <div class="form-control mb-3">
+                        <label class="label pb-1">
+                          <span class="label-text text-sm font-medium">Description (optional)</span>
+                        </label>
+                        <textarea
+                          name="description"
+                          rows="3"
+                          maxlength="2000"
+                          placeholder="Add context, requirements, or acceptance criteria…"
+                          class="textarea textarea-bordered w-full text-sm resize-none"
+                          phx-hook="CharCounter"
+                          id="queue-item-description"
+                          data-counter-target="queue-item-description-counter"
+                        ></textarea>
+                        <div class="label pt-1">
+                          <span id="queue-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                        </div>
+                      </div>
                       <div class="flex gap-2 mt-2">
                         <.button type="submit" class="btn btn-primary btn-sm">Add to queue</.button>
                         <.button
@@ -1062,26 +1159,70 @@ defmodule PlanningPokerWeb.LobbyLive do
                   class="space-y-2"
                 >
                   <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
+                    <% editing_item_desc = @editing_description_id == item.id %>
+                    <% item_description = Map.get(item, :description) %>
                     <div
                       id={"queue-item-#{item.id}"}
                       data-id={item.id}
-                      class="flex items-center gap-3 bg-base-200 rounded-lg px-4 py-2.5 border border-base-300 group"
+                      class="bg-base-200 rounded-lg border border-base-300 group"
                     >
-                      <span class="drag-handle cursor-grab text-base-content/30 hover:text-base-content/60 shrink-0">
-                        <.icon name="hero-bars-2-micro" class="size-4" />
-                      </span>
-                      <span class="text-xs text-base-content/40 font-mono tabular-nums w-4 shrink-0">
-                        {index + 1}.
-                      </span>
-                      <span class="flex-1 text-sm text-base-content truncate">{item.title}</span>
-                      <button
-                        phx-click="remove_from_queue"
-                        phx-value-id={item.id}
-                        class="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-error cursor-pointer"
-                        aria-label="Remove"
-                      >
-                        <.icon name="hero-x-mark-micro" class="size-4" />
-                      </button>
+                      <div class="flex items-center gap-3 px-4 py-2.5">
+                        <span class="drag-handle cursor-grab text-base-content/30 hover:text-base-content/60 shrink-0">
+                          <.icon name="hero-bars-2-micro" class="size-4" />
+                        </span>
+                        <span class="text-xs text-base-content/40 font-mono tabular-nums w-4 shrink-0">
+                          {index + 1}.
+                        </span>
+                        <span class="flex-1 text-sm text-base-content truncate">{item.title}</span>
+                        <button
+                          phx-click="edit_description"
+                          phx-value-id={item.id}
+                          class="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-base-content/60 cursor-pointer"
+                          aria-label={if item_description, do: "Edit description", else: "Add description"}
+                          title={if item_description, do: "Edit description", else: "Add description"}
+                        >
+                          <.icon name="hero-document-text-micro" class={["size-4", item_description && "text-primary/60"]} />
+                        </button>
+                        <button
+                          phx-click="remove_from_queue"
+                          phx-value-id={item.id}
+                          class="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-error cursor-pointer"
+                          aria-label="Remove"
+                        >
+                          <.icon name="hero-x-mark-micro" class="size-4" />
+                        </button>
+                      </div>
+                      <%= if editing_item_desc do %>
+                        <div class="px-4 pb-3">
+                          <form phx-submit="save_description">
+                            <input type="hidden" name="item_id" value={item.id} />
+                            <textarea
+                              name="description"
+                              rows="3"
+                              maxlength="2000"
+                              placeholder="Add context, requirements, or acceptance criteria…"
+                              class="w-full text-sm rounded-lg border border-base-300 bg-base-100 px-3 py-2 resize-none focus:outline-none focus:border-primary/50"
+                              phx-hook="CharCounter"
+                              id={"queue-desc-edit-#{item.id}"}
+                              data-counter-target={"queue-desc-counter-#{item.id}"}
+                              autofocus
+                            >{item_description}</textarea>
+                            <div class="flex items-center justify-between mt-1">
+                              <span id={"queue-desc-counter-#{item.id}"} class="text-xs text-base-content/40">
+                                {String.length(item_description || "")} / 2000
+                              </span>
+                              <div class="flex gap-2">
+                                <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                                <button type="button" phx-click="cancel_description" class="btn btn-ghost btn-xs">Cancel</button>
+                              </div>
+                            </div>
+                          </form>
+                        </div>
+                      <% else %>
+                        <%= if item_description do %>
+                          <p class="px-4 pb-2.5 text-xs text-base-content/50 line-clamp-2">{item_description}</p>
+                        <% end %>
+                      <% end %>
                     </div>
                   <% end %>
                 </div>
@@ -1600,6 +1741,24 @@ defmodule PlanningPokerWeb.LobbyLive do
                   placeholder="https://…"
                   autocomplete="off"
                 />
+                <div class="form-control mb-3">
+                  <label class="label pb-1">
+                    <span class="label-text text-sm font-medium">Description (optional)</span>
+                  </label>
+                  <textarea
+                    name="description"
+                    rows="3"
+                    maxlength="2000"
+                    placeholder="Add context, requirements, or acceptance criteria…"
+                    class="textarea textarea-bordered w-full text-sm resize-none"
+                    phx-hook="CharCounter"
+                    id="member-queue-item-description"
+                    data-counter-target="member-queue-item-description-counter"
+                  ></textarea>
+                  <div class="label pt-1">
+                    <span id="member-queue-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                  </div>
+                </div>
                 <div class="flex gap-2 mt-2">
                   <.button type="submit" class="btn btn-primary btn-sm">Add to queue</.button>
                   <.button
@@ -1648,21 +1807,27 @@ defmodule PlanningPokerWeb.LobbyLive do
         <div class="space-y-1.5">
           <p class="text-xs text-base-content/40 uppercase tracking-wider mb-2">Up next</p>
           <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
-            <div class="flex items-center gap-3 bg-base-100 rounded-lg px-3 py-2 border border-base-300">
-              <span class="text-xs text-base-content/30 font-mono tabular-nums w-5 shrink-0 text-right">
-                {current_position + index + 1}.
-              </span>
-              <span class="flex-1 text-sm text-base-content/70 truncate">{item.title}</span>
-              <%= if item.context_url do %>
-                <a
-                  href={item.context_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="shrink-0 text-base-content/30 hover:text-primary transition-colors"
-                  title="View context"
-                >
-                  <.icon name="hero-arrow-top-right-on-square-micro" class="size-3.5" />
-                </a>
+            <% item_description = Map.get(item, :description) %>
+            <div class="bg-base-100 rounded-lg border border-base-300">
+              <div class="flex items-center gap-3 px-3 py-2">
+                <span class="text-xs text-base-content/30 font-mono tabular-nums w-5 shrink-0 text-right">
+                  {current_position + index + 1}.
+                </span>
+                <span class="flex-1 text-sm text-base-content/70 truncate">{item.title}</span>
+                <%= if item.context_url do %>
+                  <a
+                    href={item.context_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="shrink-0 text-base-content/30 hover:text-primary transition-colors"
+                    title="View context"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square-micro" class="size-3.5" />
+                  </a>
+                <% end %>
+              </div>
+              <%= if item_description do %>
+                <p class="px-3 pb-2 text-xs text-base-content/40 line-clamp-2">{item_description}</p>
               <% end %>
             </div>
           <% end %>
@@ -1891,6 +2056,13 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   defp nilify(""), do: nil
   defp nilify(val), do: val
+
+  @description_limit 2_000
+  defp truncate_description(text) when is_binary(text) do
+    trimmed = String.trim(text)
+    if String.length(trimmed) > @description_limit, do: String.slice(trimmed, 0, @description_limit), else: trimmed
+  end
+  defp truncate_description(_), do: ""
 
   defp generate_id do
     :crypto.strong_rand_bytes(4) |> Base.url_encode64(padding: false)

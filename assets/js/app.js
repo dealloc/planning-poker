@@ -27,12 +27,13 @@ import EmojiThrow from "./hooks/emoji_throw"
 import QueueSortable from "./hooks/queue_sortable"
 import KeyboardShortcuts from "./hooks/keyboard_shortcuts"
 import NotificationManager from "./hooks/notification_manager"
+import CharCounter from "./hooks/char_counter"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager },
+  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager, CharCounter },
 })
 
 // Show progress bar on live navigation and form submits
