@@ -353,6 +353,8 @@ defmodule PlanningPokerWeb.LobbyLive do
   @impl true
   def handle_info({:lobby_updated, lobby}, socket) do
     my_vote = Map.get(lobby.votes, socket.assigns.current_user_id)
+    old_state = socket.assigns.lobby.state
+    new_state = lobby.state
 
     # Keep local pending_host_transfer unless it was cleared server-side
     pending =
@@ -362,11 +364,26 @@ defmodule PlanningPokerWeb.LobbyLive do
         socket.assigns.pending_host_transfer
       end
 
-    {:noreply,
-     socket
-     |> assign(:lobby, lobby)
-     |> assign(:my_vote, my_vote)
-     |> assign(:pending_host_transfer, pending)}
+    socket =
+      socket
+      |> assign(:lobby, lobby)
+      |> assign(:my_vote, my_vote)
+      |> assign(:pending_host_transfer, pending)
+
+    socket =
+      cond do
+        old_state != :voting && new_state == :voting ->
+          push_event(socket, "voting_started", %{})
+
+        old_state == :voting && new_state == :revealed ->
+          stats = PlanningPoker.Lobby.compute_stats(lobby.votes)
+          push_event(socket, "votes_revealed", %{consensus: stats.consensus?})
+
+        true ->
+          socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_info({:host_transfer_offered, to_id}, socket) do
@@ -419,7 +436,7 @@ defmodule PlanningPokerWeb.LobbyLive do
     <Layouts.app flash={@flash} inner_class="w-full max-w-7xl mx-auto px-4 sm:px-6">
       <div
         id="keyboard-shortcuts-root"
-        phx-hook=".KeyboardShortcuts"
+        phx-hook="KeyboardShortcuts"
         data-state={@lobby.state}
         data-is-creator={to_string(@current_user_id == @lobby.creator_id)}
         data-planning-system={@lobby.planning_system}
@@ -432,7 +449,7 @@ defmodule PlanningPokerWeb.LobbyLive do
         id="lobby-root"
         phx-window-blur="blur"
         phx-window-focus="focus"
-        phx-hook=".EmojiThrow"
+        phx-hook="EmojiThrow"
         class="pb-12"
       >
         <%!-- Host transfer offer banner (only visible to the invited user) --%>
@@ -598,6 +615,19 @@ defmodule PlanningPokerWeb.LobbyLive do
               <.icon name="hero-qr-code-micro" class="size-3.5 text-base-content/50" />
               <span class="text-xs font-medium text-base-content/60 hidden sm:inline">QR</span>
             </button>
+            <%!-- Notification toggle — visual state managed by NotificationManager hook via _syncButton --%>
+            <div id="notification-manager" phx-hook="NotificationManager">
+              <button
+                id="notification-toggle-btn"
+                class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
+                title="Enable notifications (sound + browser alerts)"
+                aria-label="Toggle notifications"
+                aria-pressed="false"
+              >
+                <.icon name="hero-bell-micro" class="size-3.5 text-base-content/50" />
+                <span class="text-xs font-medium text-base-content/60 hidden sm:inline">Notify</span>
+              </button>
+            </div>
             <button
               onclick="document.getElementById('shortcuts-modal').classList.toggle('hidden')"
               class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
@@ -1028,7 +1058,7 @@ defmodule PlanningPokerWeb.LobbyLive do
 
                 <div
                   id="queue-list"
-                  phx-hook=".QueueSortable"
+                  phx-hook="QueueSortable"
                   class="space-y-2"
                 >
                   <%= for {item, index} <- Enum.with_index(@lobby.queue) do %>
@@ -1485,158 +1515,6 @@ defmodule PlanningPokerWeb.LobbyLive do
         </div>
       </div>
     </Layouts.app>
-
-    <script :type={Phoenix.LiveView.ColocatedHook} name=".EmojiThrow">
-      export default {
-        mounted() {
-          this.handleEvent("download_file", ({ filename, content, mime_type }) => {
-            const blob = new Blob([content], { type: mime_type })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.href = url
-            a.download = filename
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
-          })
-
-          this.handleEvent("emoji_thrown", ({ from, to, emoji, target_el }) => {
-            const fromEl = document.getElementById(`participant-${from}`)
-            const toEl = document.getElementById(target_el)
-            if (!fromEl || !toEl) return
-
-            const fromRect = fromEl.getBoundingClientRect()
-            const toRect = toEl.getBoundingClientRect()
-
-            const el = document.createElement("div")
-            el.textContent = emoji
-            el.style.cssText = [
-              "position:fixed",
-              `left:${fromRect.left + fromRect.width / 2}px`,
-              `top:${fromRect.top + fromRect.height / 2}px`,
-              "font-size:2rem",
-              "pointer-events:none",
-              "z-index:9999",
-              "transform:translate(-50%,-50%)",
-              "transition:left 0.8s ease-in-out, top 0.8s ease-in-out, opacity 0.2s ease 0.7s",
-              "will-change:left,top,opacity"
-            ].join(";")
-
-            document.body.appendChild(el)
-
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                el.style.left = `${toRect.left + toRect.width / 2}px`
-                el.style.top = `${toRect.top + toRect.height / 2}px`
-                el.style.opacity = "0"
-              })
-            })
-
-            setTimeout(() => el.remove(), 1100)
-          })
-        }
-      }
-    </script>
-
-    <script :type={Phoenix.LiveView.ColocatedHook} name=".QueueSortable">
-      export default {
-        mounted() {
-          this._sortable = new window.Sortable(this.el, {
-            animation: 150,
-            ghostClass: "opacity-40",
-            handle: ".drag-handle",
-            onEnd: ({ oldIndex, newIndex }) => {
-              if (oldIndex === newIndex) return
-              const ids = Array.from(this.el.children).map(el => el.dataset.id)
-              this.pushEvent("reorder_queue", { ids })
-            }
-          })
-        },
-        updated() {},
-        destroyed() {
-          this._sortable.destroy()
-        }
-      }
-    </script>
-
-    <script :type={Phoenix.LiveView.ColocatedHook} name=".KeyboardShortcuts">
-      const VOTE_KEYS = ["1","2","3","4","5","6","7","8","9","0","q","w","e"]
-
-      export default {
-        mounted() {
-          this._keydown = (e) => this.handleKey(e)
-          window.addEventListener("keydown", this._keydown)
-        },
-        destroyed() {
-          window.removeEventListener("keydown", this._keydown)
-        },
-        handleKey(e) {
-          if (e.ctrlKey || e.altKey || e.metaKey) return
-          const tag = document.activeElement?.tagName?.toLowerCase()
-          if (tag === "input" || tag === "textarea" || tag === "select" || document.activeElement?.isContentEditable) return
-
-          const key = e.key.toLowerCase()
-          const ds = this.el.dataset
-          const state = ds.state
-          const isCreator = ds.isCreator === "true"
-          const queueEmpty = ds.queueEmpty === "true"
-
-          if (e.key === "?" || e.key === "/") {
-            e.preventDefault()
-            const modal = document.getElementById("shortcuts-modal")
-            if (modal) modal.classList.toggle("hidden")
-            return
-          }
-
-          if (e.key === "Escape") {
-            const modal = document.getElementById("shortcuts-modal")
-            if (modal && !modal.classList.contains("hidden")) {
-              modal.classList.add("hidden")
-              e.preventDefault()
-            }
-            return
-          }
-
-          if (state === "voting") {
-            const idx = VOTE_KEYS.indexOf(key)
-            if (idx !== -1) {
-              e.preventDefault()
-              const cardButtons = document.querySelectorAll("[id^='card-']")
-              const btn = cardButtons[idx]
-              if (btn) {
-                const cardValue = btn.getAttribute("phx-value-card")
-                if (cardValue) this.pushEvent("vote", {card: cardValue})
-              }
-              return
-            }
-          }
-
-          if (!isCreator) return
-
-          if ((key === " " || e.code === "Space" || key === "r") && state === "voting") {
-            e.preventDefault()
-            this.pushEvent("reveal", {})
-            return
-          }
-          if (key === "v" && state === "revealed") {
-            e.preventDefault()
-            this.pushEvent("reset_round", {})
-            return
-          }
-          if (key === "n" && state === "revealed" && !queueEmpty) {
-            e.preventDefault()
-            this.pushEvent("next_item", {})
-            return
-          }
-          if (key === "a") {
-            e.preventDefault()
-            this.pushEvent("toggle_auto_reveal", {})
-            return
-          }
-        }
-      }
-    </script>
     """
   end
 

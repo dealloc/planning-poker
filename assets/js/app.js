@@ -22,14 +22,17 @@ import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import {hooks as colocatedHooks} from "phoenix-colocated/planning_poker"
 import topbar from "../vendor/topbar"
+import EmojiThrow from "./hooks/emoji_throw"
+import QueueSortable from "./hooks/queue_sortable"
+import KeyboardShortcuts from "./hooks/keyboard_shortcuts"
+import NotificationManager from "./hooks/notification_manager"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager },
 })
 
 // Show progress bar on live navigation and form submits
