@@ -41,7 +41,7 @@ defmodule PlanningPokerWeb.Layouts do
     ~H"""
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
       <div class="flex-1"><a href="/" class="text-xl font-bold">Planning Poker</a></div>
-      
+
       <div class="flex-none"><.theme_toggle /></div>
     </header>
 
@@ -49,7 +49,15 @@ defmodule PlanningPokerWeb.Layouts do
       <div class={@inner_class}>{render_slot(@inner_block)}</div>
     </main>
     <footer class="border-t border-base-300 py-4 text-center text-xs text-base-content/40">
-      Built with 💙 by <a href="https://www.elixus.be" target="_blank" rel="noopener noreferrer" class="hover:text-base-content/70 transition-colors">Elixus</a>
+      Built with 💙 by
+      <a
+        href="https://www.elixus.be"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hover:text-base-content/70 transition-colors"
+      >
+        Elixus
+      </a>
     </footer>
     <.flash_group flash={@flash} />
     """
@@ -80,7 +88,7 @@ defmodule PlanningPokerWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
-      
+
       <.flash
         id="server-error"
         kind={:error}

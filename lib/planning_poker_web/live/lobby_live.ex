@@ -5,13 +5,49 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   @throw_emojis [
     # Reactions
-    "👍", "👎", "🎉", "❤️", "😂", "🤔", "🔥", "💩", "🚀", "⭐",
+    "👍",
+    "👎",
+    "🎉",
+    "❤️",
+    "😂",
+    "🤔",
+    "🔥",
+    "💩",
+    "🚀",
+    "⭐",
     # More reactions
-    "😍", "😅", "🥲", "😬", "🤯", "🤩", "😤", "🥳", "😴", "🤦",
+    "😍",
+    "😅",
+    "🥲",
+    "😬",
+    "🤯",
+    "🤩",
+    "😤",
+    "🥳",
+    "😴",
+    "🤦",
     # Work & process
-    "✅", "❌", "⚠️", "🐛", "🔑", "💡", "📦", "🧪", "🛑", "📝",
+    "✅",
+    "❌",
+    "⚠️",
+    "🐛",
+    "🔑",
+    "💡",
+    "📦",
+    "🧪",
+    "🛑",
+    "📝",
     # Team & fun
-    "🙌", "👀", "🤝", "💪", "🎯", "🏆", "🍕", "☕", "🎲", "🐢"
+    "🙌",
+    "👀",
+    "🤝",
+    "💪",
+    "🎯",
+    "🏆",
+    "🍕",
+    "☕",
+    "🎲",
+    "🐢"
   ]
 
   # ── Mount ────────────────────────────────────────────────────────────────────
@@ -53,8 +89,14 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:show_queue_form, false)
               |> assign(:show_start_form, false)
               |> assign(:throw_emojis, @throw_emojis)
-              |> assign(:start_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))
-              |> assign(:queue_form, to_form(%{"title" => "", "context_url" => "", "description" => ""}))
+              |> assign(
+                :start_form,
+                to_form(%{"title" => "", "context_url" => "", "description" => ""})
+              )
+              |> assign(
+                :queue_form,
+                to_form(%{"title" => "", "context_url" => "", "description" => ""})
+              )
               |> assign(:page_title, lobby.name)
               |> assign(:pending_host_transfer, lobby.pending_host_transfer)
               |> assign(:elapsed_seconds, elapsed_seconds(lobby.opened_at))
@@ -141,7 +183,14 @@ defmodule PlanningPokerWeb.LobbyLive do
   def handle_event("start_item", %{"title" => title, "context_url" => url} = params, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     description = nilify(truncate_description(Map.get(params, "description", "")))
-    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url), description: description}
+
+    item = %{
+      id: generate_id(),
+      title: String.trim(title),
+      context_url: nilify(url),
+      description: description
+    }
+
     LobbyServer.start_item(lobby.id, uid, item)
 
     {:noreply,
@@ -154,7 +203,14 @@ defmodule PlanningPokerWeb.LobbyLive do
   def handle_event("add_to_queue", %{"title" => title, "context_url" => url} = params, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     description = nilify(truncate_description(Map.get(params, "description", "")))
-    item = %{id: generate_id(), title: String.trim(title), context_url: nilify(url), description: description}
+
+    item = %{
+      id: generate_id(),
+      title: String.trim(title),
+      context_url: nilify(url),
+      description: description
+    }
+
     LobbyServer.add_to_queue(lobby.id, uid, item)
 
     {:noreply,
@@ -337,7 +393,11 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, :editing_description_id, nil)}
   end
 
-  def handle_event("save_description", %{"item_id" => item_id, "description" => description}, socket) do
+  def handle_event(
+        "save_description",
+        %{"item_id" => item_id, "description" => description},
+        socket
+      ) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     description_value = truncate_description(description)
     LobbyServer.update_item_description(lobby.id, uid, item_id, description_value)
@@ -346,9 +406,12 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   def handle_event("show_qr_code", _params, socket) do
     lobby_url = url(~p"/lobby/#{socket.assigns.lobby.id}")
-    {:ok, svg} = lobby_url
+
+    {:ok, svg} =
+      lobby_url
       |> QRCode.create(:medium)
       |> QRCode.render(:svg, %QRCode.Render.SvgSettings{scale: 5})
+
     {:noreply, assign(socket, show_qr_modal: true, qr_svg: svg)}
   end
 
@@ -592,7 +655,9 @@ defmodule PlanningPokerWeb.LobbyLive do
                   title="Change voting system (only between rounds)"
                 >
                   <.icon name="hero-squares-2x2-micro" class="size-3.5" />
-                  <span class="hidden sm:inline">{planning_system_label(@lobby.planning_system)}</span>
+                  <span class="hidden sm:inline">
+                    {planning_system_label(@lobby.planning_system)}
+                  </span>
                   <.icon name="hero-chevron-down-micro" class="size-3" />
                 </button>
                 <div
@@ -745,18 +810,29 @@ defmodule PlanningPokerWeb.LobbyLive do
                       autofocus
                     >{description}</textarea>
                     <div class="flex items-center justify-between mt-1">
-                      <span id={"current-item-description-counter-#{item_id}"} class="text-xs text-base-content/40">
+                      <span
+                        id={"current-item-description-counter-#{item_id}"}
+                        class="text-xs text-base-content/40"
+                      >
                         {String.length(description || "")} / 2000
                       </span>
                       <div class="flex gap-2">
                         <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                        <button type="button" phx-click="cancel_description" class="btn btn-ghost btn-xs">Cancel</button>
+                        <button
+                          type="button"
+                          phx-click="cancel_description"
+                          class="btn btn-ghost btn-xs"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     </div>
                   </form>
                 <% else %>
                   <%= if description do %>
-                    <p class="mt-4 text-sm text-base-content/70 leading-relaxed whitespace-pre-wrap">{description}</p>
+                    <p class="mt-4 text-sm text-base-content/70 leading-relaxed whitespace-pre-wrap">
+                      {description}
+                    </p>
                   <% end %>
                   <%= if @current_user_id == @lobby.creator_id do %>
                     <button
@@ -790,7 +866,9 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <%= if stats.clarification_count > 0 do %>
                   <div class="flex items-center gap-2 mb-4 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
                     <.icon name="hero-question-mark-circle-micro" class="size-4 flex-shrink-0" />
-                    {stats.clarification_count} participant{if stats.clarification_count == 1, do: "", else: "s"} requested clarification — discuss before re-voting.
+                    {stats.clarification_count} participant{if stats.clarification_count == 1,
+                      do: "",
+                      else: "s"} requested clarification — discuss before re-voting.
                   </div>
                 <% end %>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -891,7 +969,10 @@ defmodule PlanningPokerWeb.LobbyLive do
                   </div>
                 <% end %>
                 <%!-- Vote notes --%>
-                <% notes_to_show = @lobby.vote_notes |> Enum.filter(fn {_, n} -> n != nil end) |> Enum.sort_by(fn {uid, _} -> Map.get(@lobby.votes, uid) end) %>
+                <% notes_to_show =
+                  @lobby.vote_notes
+                  |> Enum.filter(fn {_, n} -> n != nil end)
+                  |> Enum.sort_by(fn {uid, _} -> Map.get(@lobby.votes, uid) end) %>
                 <%= if notes_to_show != [] do %>
                   <div class="mt-5 pt-5 border-t border-base-300">
                     <p class="text-xs text-base-content/40 uppercase tracking-wider mb-3">
@@ -903,11 +984,17 @@ defmodule PlanningPokerWeb.LobbyLive do
                         <% voter_vote = Map.get(@lobby.votes, uid) %>
                         <%= if voter do %>
                           <div class="flex items-start gap-3 bg-base-100 rounded-lg px-3 py-2.5 border border-base-300">
-                            <span class="text-xl leading-none flex-shrink-0 mt-0.5">{voter.avatar}</span>
+                            <span class="text-xl leading-none flex-shrink-0 mt-0.5">
+                              {voter.avatar}
+                            </span>
                             <div class="flex-1 min-w-0">
                               <div class="flex items-center gap-2 mb-1">
-                                <span class="text-xs font-medium text-base-content/70">{voter.name}</span>
-                                <span class="font-mono text-xs bg-base-200 border border-base-300 px-1.5 py-0.5 rounded text-base-content/70">{voter_vote}</span>
+                                <span class="text-xs font-medium text-base-content/70">
+                                  {voter.name}
+                                </span>
+                                <span class="font-mono text-xs bg-base-200 border border-base-300 px-1.5 py-0.5 rounded text-base-content/70">
+                                  {voter_vote}
+                                </span>
                               </div>
                               <p class="text-sm text-base-content/80 leading-snug">{note}</p>
                             </div>
@@ -927,103 +1014,107 @@ defmodule PlanningPokerWeb.LobbyLive do
               <%= if is_spectator do %>
                 <div class="mb-6 flex flex-col items-center justify-center py-8 text-center rounded-xl border border-base-300 bg-base-200">
                   <.icon name="hero-eye-micro" class="size-8 text-base-content/30 mb-3" />
-                  <p class="text-base font-medium text-base-content/50">You are watching this round</p>
+                  <p class="text-base font-medium text-base-content/50">
+                    You are watching this round
+                  </p>
                   <p class="text-sm text-base-content/40 mt-1">Toggle spectator mode to vote</p>
                 </div>
               <% else %>
-              <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
-              <div class="mb-6">
-                <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
-                  <%= for card <- cards do %>
-                    <% selected = @my_vote == card %>
-                    <button
-                      id={"card-#{card}"}
-                      phx-click="vote"
-                      phx-value-card={card}
-                      class={[
-                        "relative h-24 sm:h-28 md:w-20 rounded-xl border-2 text-xl font-bold",
-                        "flex flex-col items-center justify-center cursor-pointer select-none",
-                        "transition-all duration-150 hover:-translate-y-1 hover:scale-110 hover:shadow-lg",
-                        if(selected,
-                          do:
-                            "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105 card-select-glow",
-                          else:
-                            if(card == "?",
-                              do: "bg-warning/10 border-warning/40 text-warning hover:border-warning/70",
-                              else: "bg-base-200 border-base-300 text-base-content hover:border-primary/50"
-                            )
-                        )
-                      ]}
-                    >
-                      {card}
-                      <%= if selected do %>
-                        <span class="absolute bottom-1.5 left-0 right-0 mx-auto flex items-center justify-center gap-0.5 text-[9px] font-semibold uppercase tracking-widest leading-none text-primary-content/80">
-                          <svg
-                            class="size-2.5 shrink-0"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M2 6.5L4.8 9.5L10 3"
-                              stroke="currentColor"
-                              stroke-width="1.8"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            />
-                          </svg>
-                          Picked
+                <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
+                <div class="mb-6">
+                  <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
+                    <%= for card <- cards do %>
+                      <% selected = @my_vote == card %>
+                      <button
+                        id={"card-#{card}"}
+                        phx-click="vote"
+                        phx-value-card={card}
+                        class={[
+                          "relative h-24 sm:h-28 md:w-20 rounded-xl border-2 text-xl font-bold",
+                          "flex flex-col items-center justify-center cursor-pointer select-none",
+                          "transition-all duration-150 hover:-translate-y-1 hover:scale-110 hover:shadow-lg",
+                          if(selected,
+                            do:
+                              "bg-primary text-primary-content border-primary shadow-lg -translate-y-2 scale-105 card-select-glow",
+                            else:
+                              if(card == "?",
+                                do:
+                                  "bg-warning/10 border-warning/40 text-warning hover:border-warning/70",
+                                else:
+                                  "bg-base-200 border-base-300 text-base-content hover:border-primary/50"
+                              )
+                          )
+                        ]}
+                      >
+                        {card}
+                        <%= if selected do %>
+                          <span class="absolute bottom-1.5 left-0 right-0 mx-auto flex items-center justify-center gap-0.5 text-[9px] font-semibold uppercase tracking-widest leading-none text-primary-content/80">
+                            <svg
+                              class="size-2.5 shrink-0"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M2 6.5L4.8 9.5L10 3"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                            Picked
+                          </span>
+                        <% end %>
+                      </button>
+                    <% end %>
+                  </div>
+                  <p class="text-sm text-base-content/60 mt-3 text-center">
+                    <%= if @my_vote do %>
+                      You voted
+                      <span class="font-mono font-bold bg-primary/20 px-1.5 py-0.5 rounded">
+                        {@my_vote}
+                      </span>
+                      — tap another card to change your vote.
+                    <% else %>
+                      Pick your estimate. You can change it anytime before reveal.
+                    <% end %>
+                  </p>
+                  <%!-- Vote note input (shown once a card is selected) --%>
+                  <%= if @my_vote do %>
+                    <form phx-submit="save_vote_note" class="mt-4">
+                      <div class="relative">
+                        <textarea
+                          name="note"
+                          id="vote-note-textarea"
+                          rows="2"
+                          maxlength="500"
+                          placeholder="Add a note or reasoning for your vote (optional)…"
+                          class="w-full text-sm rounded-xl border border-base-300 bg-base-200 px-3 py-2 pr-20 resize-none focus:outline-none focus:border-primary/50 placeholder:text-base-content/30"
+                          phx-hook="CharCounter"
+                          data-counter-target="vote-note-counter"
+                        >{@my_vote_note}</textarea>
+                        <button
+                          type="submit"
+                          class="absolute right-2 bottom-2 btn btn-primary btn-xs"
+                        >
+                          Save
+                        </button>
+                      </div>
+                      <div class="flex justify-between mt-1 px-0.5">
+                        <span id="vote-note-counter" class="text-xs text-base-content/30">
+                          {String.length(@my_vote_note || "")} / 500
                         </span>
-                      <% end %>
-                    </button>
+                        <%= if @my_vote_note do %>
+                          <span class="text-xs text-success flex items-center gap-1">
+                            <.icon name="hero-check-circle-micro" class="size-3.5" /> Note saved
+                          </span>
+                        <% end %>
+                      </div>
+                    </form>
                   <% end %>
                 </div>
-                <p class="text-sm text-base-content/60 mt-3 text-center">
-                  <%= if @my_vote do %>
-                    You voted
-                    <span class="font-mono font-bold bg-primary/20 px-1.5 py-0.5 rounded">
-                      {@my_vote}
-                    </span>
-                    — tap another card to change your vote.
-                  <% else %>
-                    Pick your estimate. You can change it anytime before reveal.
-                  <% end %>
-                </p>
-                <%!-- Vote note input (shown once a card is selected) --%>
-                <%= if @my_vote do %>
-                  <form phx-submit="save_vote_note" class="mt-4">
-                    <div class="relative">
-                      <textarea
-                        name="note"
-                        id="vote-note-textarea"
-                        rows="2"
-                        maxlength="500"
-                        placeholder="Add a note or reasoning for your vote (optional)…"
-                        class="w-full text-sm rounded-xl border border-base-300 bg-base-200 px-3 py-2 pr-20 resize-none focus:outline-none focus:border-primary/50 placeholder:text-base-content/30"
-                        phx-hook="CharCounter"
-                        data-counter-target="vote-note-counter"
-                      >{@my_vote_note}</textarea>
-                      <button
-                        type="submit"
-                        class="absolute right-2 bottom-2 btn btn-primary btn-xs"
-                      >
-                        Save
-                      </button>
-                    </div>
-                    <div class="flex justify-between mt-1 px-0.5">
-                      <span id="vote-note-counter" class="text-xs text-base-content/30">
-                        {String.length(@my_vote_note || "")} / 500
-                      </span>
-                      <%= if @my_vote_note do %>
-                        <span class="text-xs text-success flex items-center gap-1">
-                          <.icon name="hero-check-circle-micro" class="size-3.5" /> Note saved
-                        </span>
-                      <% end %>
-                    </div>
-                  </form>
-                <% end %>
-              </div>
               <% end %>
             <% end %>
 
@@ -1086,7 +1177,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                           data-counter-target="start-item-description-counter"
                         ></textarea>
                         <div class="label pt-1">
-                          <span id="start-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                          <span
+                            id="start-item-description-counter"
+                            class="label-text-alt text-base-content/40"
+                          >
+                            0 / 2000
+                          </span>
                         </div>
                       </div>
                       <div class="flex gap-2 mt-2">
@@ -1196,7 +1292,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                           data-counter-target="queue-item-description-counter"
                         ></textarea>
                         <div class="label pt-1">
-                          <span id="queue-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                          <span
+                            id="queue-item-description-counter"
+                            class="label-text-alt text-base-content/40"
+                          >
+                            0 / 2000
+                          </span>
                         </div>
                       </div>
                       <div class="flex gap-2 mt-2">
@@ -1247,10 +1348,15 @@ defmodule PlanningPokerWeb.LobbyLive do
                           phx-click="edit_description"
                           phx-value-id={item.id}
                           class="opacity-0 group-hover:opacity-100 transition-opacity text-base-content/40 hover:text-base-content/60 cursor-pointer"
-                          aria-label={if item_description, do: "Edit description", else: "Add description"}
+                          aria-label={
+                            if item_description, do: "Edit description", else: "Add description"
+                          }
                           title={if item_description, do: "Edit description", else: "Add description"}
                         >
-                          <.icon name="hero-document-text-micro" class={["size-4", item_description && "text-primary/60"]} />
+                          <.icon
+                            name="hero-document-text-micro"
+                            class={["size-4", item_description && "text-primary/60"]}
+                          />
                         </button>
                         <button
                           phx-click="remove_from_queue"
@@ -1277,19 +1383,30 @@ defmodule PlanningPokerWeb.LobbyLive do
                               autofocus
                             >{item_description}</textarea>
                             <div class="flex items-center justify-between mt-1">
-                              <span id={"queue-desc-counter-#{item.id}"} class="text-xs text-base-content/40">
+                              <span
+                                id={"queue-desc-counter-#{item.id}"}
+                                class="text-xs text-base-content/40"
+                              >
                                 {String.length(item_description || "")} / 2000
                               </span>
                               <div class="flex gap-2">
                                 <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                                <button type="button" phx-click="cancel_description" class="btn btn-ghost btn-xs">Cancel</button>
+                                <button
+                                  type="button"
+                                  phx-click="cancel_description"
+                                  class="btn btn-ghost btn-xs"
+                                >
+                                  Cancel
+                                </button>
                               </div>
                             </div>
                           </form>
                         </div>
                       <% else %>
                         <%= if item_description do %>
-                          <p class="px-4 pb-2.5 text-xs text-base-content/50 line-clamp-2">{item_description}</p>
+                          <p class="px-4 pb-2.5 text-xs text-base-content/50 line-clamp-2">
+                            {item_description}
+                          </p>
                         <% end %>
                       <% end %>
                     </div>
@@ -1335,7 +1452,9 @@ defmodule PlanningPokerWeb.LobbyLive do
                     <% entry_item_id = entry.item && entry.item.id %>
                     <% is_editing_note = @editing_note_id == entry_item_id %>
                     <% prev_entry = Enum.at(@lobby.history, index + 1) %>
-                    <% show_system_badge = prev_entry && entry[:planning_system] && entry[:planning_system] != prev_entry[:planning_system] %>
+                    <% show_system_badge =
+                      prev_entry && entry[:planning_system] &&
+                        entry[:planning_system] != prev_entry[:planning_system] %>
                     <div
                       id={"history-#{entry_item_id}"}
                       class="bg-base-200 rounded-xl px-5 py-4 border border-base-300"
@@ -1394,7 +1513,9 @@ defmodule PlanningPokerWeb.LobbyLive do
                           >{entry[:note]}</textarea>
                           <div class="flex gap-2 mt-2">
                             <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                            <button type="button" phx-click="cancel_note" class="btn btn-ghost btn-xs">Cancel</button>
+                            <button type="button" phx-click="cancel_note" class="btn btn-ghost btn-xs">
+                              Cancel
+                            </button>
                           </div>
                         </form>
                       <% else %>
@@ -1636,16 +1757,23 @@ defmodule PlanningPokerWeb.LobbyLive do
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           phx-click="close_qr_modal"
         >
-          <div class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-xs mx-4" onclick="event.stopPropagation()">
+          <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-xs mx-4"
+            onclick="event.stopPropagation()"
+          >
             <div class="flex items-center justify-between mb-5">
               <h2 class="text-lg font-bold text-base-content">Join via QR Code</h2>
-              <button phx-click="close_qr_modal" class="btn btn-ghost btn-sm btn-circle" aria-label="Close">
+              <button
+                phx-click="close_qr_modal"
+                class="btn btn-ghost btn-sm btn-circle"
+                aria-label="Close"
+              >
                 <.icon name="hero-x-mark-micro" class="size-4" />
               </button>
             </div>
             <div class="flex flex-col items-center gap-4">
               <div class="rounded-lg overflow-hidden bg-white p-2 w-48 h-48 flex items-center justify-center [&>svg]:max-w-full [&>svg]:h-auto">
-                <%= Phoenix.HTML.raw(@qr_svg) %>
+                {Phoenix.HTML.raw(@qr_svg)}
               </div>
               <p class="text-xs font-mono text-base-content/60 break-all text-center select-all">
                 {url(~p"/lobby/#{@lobby.id}")}
@@ -1735,10 +1863,13 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   defp session_stats_panel(assigns) do
     assigns = assign(assigns, :stats, session_stats(assigns.history, assigns.opened_at))
+
     ~H"""
     <%= if @stats.total_items > 0 do %>
       <div class="mt-6 bg-base-200 rounded-xl px-5 py-4 border border-base-300">
-        <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">Session Stats</h3>
+        <h3 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">
+          Session Stats
+        </h3>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div class="text-center">
             <div class="text-2xl font-bold text-base-content">{@stats.total_items}</div>
@@ -1750,13 +1881,17 @@ defmodule PlanningPokerWeb.LobbyLive do
           </div>
           <%= if @stats.avg_duration do %>
             <div class="text-center">
-              <div class="text-2xl font-bold text-base-content">{format_session_time(@stats.avg_duration)}</div>
+              <div class="text-2xl font-bold text-base-content">
+                {format_session_time(@stats.avg_duration)}
+              </div>
               <div class="text-xs text-base-content/50 mt-0.5">Avg per item</div>
             </div>
           <% end %>
           <%= if @stats.session_seconds do %>
             <div class="text-center">
-              <div class="text-2xl font-bold text-base-content">{format_session_time(@stats.session_seconds)}</div>
+              <div class="text-2xl font-bold text-base-content">
+                {format_session_time(@stats.session_seconds)}
+              </div>
               <div class="text-xs text-base-content/50 mt-0.5">Session time</div>
             </div>
           <% end %>
@@ -1772,9 +1907,9 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   defp queue_progress_panel(assigns) do
     ~H"""
-    <% total = length(@lobby.history) + (if @lobby.current_item, do: 1, else: 0) + length(@lobby.queue) %>
+    <% total = length(@lobby.history) + if(@lobby.current_item, do: 1, else: 0) + length(@lobby.queue) %>
     <% completed = length(@lobby.history) %>
-    <% current_position = completed + (if @lobby.current_item, do: 1, else: 0) %>
+    <% current_position = completed + if @lobby.current_item, do: 1, else: 0 %>
     <div class="mt-8 bg-base-200 rounded-xl p-5 border border-base-300">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wider">Queue</h3>
@@ -1825,7 +1960,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                     data-counter-target="member-queue-item-description-counter"
                   ></textarea>
                   <div class="label pt-1">
-                    <span id="member-queue-item-description-counter" class="label-text-alt text-base-content/40">0 / 2000</span>
+                    <span
+                      id="member-queue-item-description-counter"
+                      class="label-text-alt text-base-content/40"
+                    >
+                      0 / 2000
+                    </span>
                   </div>
                 </div>
                 <div class="flex gap-2 mt-2">
@@ -1945,7 +2085,7 @@ defmodule PlanningPokerWeb.LobbyLive do
 
     rows =
       Enum.map(history, fn entry ->
-        item_title = csv_escape(entry.item && entry.item.title || "")
+        item_title = csv_escape((entry.item && entry.item.title) || "")
         avg = entry.stats.avg || ""
         median = entry.stats.median || ""
         min = entry.stats.min || ""
@@ -1998,11 +2138,12 @@ defmodule PlanningPokerWeb.LobbyLive do
   end
 
   defp build_markdown(history) do
-    header = "# Planning Poker History\n\n| Item | Avg | Median | Min | Max | Consensus | Votes |\n|------|-----|--------|-----|-----|-----------|-------|\n"
+    header =
+      "# Planning Poker History\n\n| Item | Avg | Median | Min | Max | Consensus | Votes |\n|------|-----|--------|-----|-----|-----------|-------|\n"
 
     rows =
       Enum.map(history, fn entry ->
-        title = (entry.item && entry.item.title || "") |> String.replace("|", "\\|")
+        title = ((entry.item && entry.item.title) || "") |> String.replace("|", "\\|")
         avg = entry.stats.avg || ""
         median = entry.stats.median || ""
         min = entry.stats.min || ""
@@ -2065,12 +2206,13 @@ defmodule PlanningPokerWeb.LobbyLive do
     total_items = length(history)
     consensus_count = Enum.count(history, fn e -> e.stats.consensus? end)
 
-    all_durations = Enum.flat_map(history, fn e ->
-      case e[:duration_seconds] do
-        nil -> []
-        d -> [d]
-      end
-    end)
+    all_durations =
+      Enum.flat_map(history, fn e ->
+        case e[:duration_seconds] do
+          nil -> []
+          d -> [d]
+        end
+      end)
 
     avg_duration =
       if all_durations != [] do
@@ -2129,8 +2271,12 @@ defmodule PlanningPokerWeb.LobbyLive do
   @description_limit 2_000
   defp truncate_description(text) when is_binary(text) do
     trimmed = String.trim(text)
-    if String.length(trimmed) > @description_limit, do: String.slice(trimmed, 0, @description_limit), else: trimmed
+
+    if String.length(trimmed) > @description_limit,
+      do: String.slice(trimmed, 0, @description_limit),
+      else: trimmed
   end
+
   defp truncate_description(_), do: ""
 
   defp generate_id do

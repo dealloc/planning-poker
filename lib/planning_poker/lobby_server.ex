@@ -156,7 +156,17 @@ defmodule PlanningPoker.LobbyServer do
       {:reply, {:error, :not_creator}, lobby}
     else
       queue = Enum.reject(lobby.queue, &(&1.id == item.id))
-      lobby = %{lobby | state: :voting, current_item: item, votes: %{}, vote_notes: %{}, queue: queue, voting_started_at: DateTime.utc_now()}
+
+      lobby = %{
+        lobby
+        | state: :voting,
+          current_item: item,
+          votes: %{},
+          vote_notes: %{},
+          queue: queue,
+          voting_started_at: DateTime.utc_now()
+      }
+
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
@@ -349,7 +359,8 @@ defmodule PlanningPoker.LobbyServer do
     if lobby.creator_id != creator_id do
       {:reply, {:error, :not_creator}, lobby}
     else
-      description_value = if is_binary(description) && String.trim(description) == "", do: nil, else: description
+      description_value =
+        if is_binary(description) && String.trim(description) == "", do: nil, else: description
 
       lobby =
         cond do
@@ -359,8 +370,11 @@ defmodule PlanningPoker.LobbyServer do
           true ->
             queue =
               Enum.map(lobby.queue, fn item ->
-                if item.id == item_id, do: Map.put(item, :description, description_value), else: item
+                if item.id == item_id,
+                  do: Map.put(item, :description, description_value),
+                  else: item
               end)
+
             %{lobby | queue: queue}
         end
 
@@ -441,7 +455,16 @@ defmodule PlanningPoker.LobbyServer do
         nil
       end
 
-    entry = %{item: lobby.current_item, votes: votes, vote_notes: lobby.vote_notes, stats: stats, duration_seconds: duration_seconds, note: nil, planning_system: lobby.planning_system}
+    entry = %{
+      item: lobby.current_item,
+      votes: votes,
+      vote_notes: lobby.vote_notes,
+      stats: stats,
+      duration_seconds: duration_seconds,
+      note: nil,
+      planning_system: lobby.planning_system
+    }
+
     %{lobby | state: :revealed, history: [entry | lobby.history]}
   end
 

@@ -1,7 +1,6 @@
 defmodule PlanningPokerWeb.HomeLive do
   use PlanningPokerWeb, :live_view
 
-
   @impl true
   def mount(params, session, socket) do
     user_id = session["user_id"] || generate_id()
@@ -47,7 +46,8 @@ defmodule PlanningPokerWeb.HomeLive do
       |> assign(:user_id, user_id)
       |> assign(:selected_avatar, user_avatar)
       |> assign(:avatars, avatars)
-      |> assign(:planning_systems,
+      |> assign(
+        :planning_systems,
         Enum.map(PlanningPoker.Lobby.planning_systems(), fn {sys, label} ->
           {label, to_string(sys)}
         end)
@@ -71,31 +71,31 @@ defmodule PlanningPokerWeb.HomeLive do
         <%!-- Logo / Hero --%>
         <div class="text-center mb-10">
           <div class="text-6xl mb-4">🃏</div>
-          
+
           <h1 class="text-4xl font-bold tracking-tight text-base-content">Planning Poker</h1>
-          
+
           <p class="mt-2 text-base-content/60 text-lg">Estimate together, ship faster.</p>
         </div>
-         <%!-- Card --%>
+        <%!-- Card --%>
         <div class="w-full max-w-md bg-base-200 rounded-2xl shadow-xl p-8">
           <%= if @mode == :join do %>
             <div class="mb-6">
               <h2 class="text-xl font-semibold text-base-content">Join Lobby</h2>
-              
+
               <p class="text-sm text-base-content/60 mt-1">
                 You're joining lobby
                 <span class="font-mono font-bold text-primary">{@join_lobby_id}</span>
               </p>
             </div>
-            
+
             <%= if @join_lobby_preview do %>
               <div class="bg-base-200 border border-base-300 rounded-xl p-4 mb-4">
                 <p class="text-xs text-base-content/50 uppercase font-semibold tracking-wide mb-2">
                   You're joining
                 </p>
-                
+
                 <h2 class="text-xl font-bold text-base-content">{@join_lobby_preview.name}</h2>
-                
+
                 <div class="flex flex-wrap gap-3 mt-3 text-sm text-base-content/70">
                   <% facilitator =
                     Map.get(@join_lobby_preview.participants, @join_lobby_preview.creator_id) %>
@@ -105,7 +105,7 @@ defmodule PlanningPokerWeb.HomeLive do
                       <span>Hosted by <strong>{facilitator.name}</strong></span>
                     </span>
                   <% end %>
-                  
+
                   <span class="flex items-center gap-1">
                     <.icon name="hero-users-micro" class="size-4" /> {map_size(
                       @join_lobby_preview.participants
@@ -124,7 +124,7 @@ defmodule PlanningPokerWeb.HomeLive do
                 </div>
               </div>
             <% end %>
-            
+
             <.form for={@form} id="join-form" action={~p"/session"} method="post">
               <input type="hidden" name="action_type" value="join" />
               <input type="hidden" name="user_id" value={@user_id} />
@@ -160,24 +160,24 @@ defmodule PlanningPokerWeb.HomeLive do
                   <% end %>
                 </div>
               </div>
-              
+
               <.button variant={:primary} type="submit" class="btn btn-primary w-full mt-2">
                 Join Lobby →
               </.button>
             </.form>
-            
+
             <div class="divider my-4 text-base-content/40">or</div>
-            
+
             <.button variant={:ghost} navigate={~p"/"} class="btn btn-ghost w-full">
               Create a new lobby
             </.button>
           <% else %>
             <div class="mb-6">
               <h2 class="text-xl font-semibold text-base-content">Create a Lobby</h2>
-              
+
               <p class="text-sm text-base-content/60 mt-1">Get your team ready to estimate.</p>
             </div>
-            
+
             <.form for={@form} id="create-form" action={~p"/session"} method="post">
               <input type="hidden" name="action_type" value="create" />
               <input type="hidden" name="user_id" value={@user_id} />
@@ -212,7 +212,7 @@ defmodule PlanningPokerWeb.HomeLive do
                   <% end %>
                 </div>
               </div>
-              
+
               <.input
                 field={@form[:lobby_name]}
                 type="text"
@@ -233,7 +233,7 @@ defmodule PlanningPokerWeb.HomeLive do
             </.form>
           <% end %>
         </div>
-        
+
         <p class="mt-6 text-sm text-base-content/40">
           Share the lobby link with your team to get started.
         </p>

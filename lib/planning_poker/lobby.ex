@@ -31,10 +31,10 @@ defmodule PlanningPoker.Lobby do
   ]
 
   @card_systems %{
-    fibonacci: ["1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?", "∞", "☕"],
-    tshirt: ["XS", "S", "M", "L", "XL", "XXL", "?", "∞"],
-    powers_of_two: ["1", "2", "4", "8", "16", "32", "64", "?", "∞"],
-    days: ["1", "2", "3", "4", "5", "7", "10", "14", "?", "∞"]
+    fibonacci: ["0", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?", "∞", "☕"],
+    tshirt: ["0", "XS", "S", "M", "L", "XL", "XXL", "?", "∞"],
+    powers_of_two: ["0", "1", "2", "4", "8", "16", "32", "64", "?", "∞"],
+    days: ["0", "1", "2", "3", "4", "5", "7", "10", "14", "?", "∞"]
   }
 
   def cards(system), do: Map.fetch!(@card_systems, system)
@@ -55,7 +55,15 @@ defmodule PlanningPoker.Lobby do
     clarification_count = Enum.count(all_values, &(&1 == "?"))
 
     if Enum.empty?(numeric_values) do
-      %{avg: nil, median: nil, min: nil, max: nil, consensus?: false, distribution: distribution, clarification_count: clarification_count}
+      %{
+        avg: nil,
+        median: nil,
+        min: nil,
+        max: nil,
+        consensus?: false,
+        distribution: distribution,
+        clarification_count: clarification_count
+      }
     else
       sorted = Enum.sort(numeric_values)
       count = length(sorted)
