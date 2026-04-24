@@ -68,7 +68,12 @@ defmodule PlanningPokerWeb.SessionController do
 
   defp put_prefs_cookie(conn, user_name, user_avatar) do
     value = Jason.encode!(%{user_name: user_name, user_avatar: user_avatar})
-    put_resp_cookie(conn, @prefs_cookie, value, max_age: @prefs_max_age, same_site: "Lax", http_only: true)
+
+    put_resp_cookie(conn, @prefs_cookie, value,
+      max_age: @prefs_max_age,
+      same_site: "Lax",
+      http_only: true
+    )
   end
 
   defp to_planning_system(s) when s in @valid_systems, do: String.to_atom(s)

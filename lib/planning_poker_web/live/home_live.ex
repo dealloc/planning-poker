@@ -254,7 +254,10 @@ defmodule PlanningPokerWeb.HomeLive do
             <form action={~p"/session"} method="post">
               <input type="hidden" name="_method" value="delete" />
               <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
-              <button type="submit" class="text-xs text-base-content/40 hover:text-base-content/70 underline underline-offset-2 transition-colors">
+              <button
+                type="submit"
+                class="text-xs text-base-content/40 hover:text-base-content/70 underline underline-offset-2 transition-colors"
+              >
                 Logout
               </button>
             </form>

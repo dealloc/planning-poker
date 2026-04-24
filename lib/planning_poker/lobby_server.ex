@@ -110,7 +110,6 @@ defmodule PlanningPoker.LobbyServer do
 
   @impl true
   def init(attrs) do
-    attrs = Map.put_new(attrs, :opened_at, DateTime.utc_now())
     {:ok, struct!(Lobby, attrs)}
   end
 
@@ -167,6 +166,7 @@ defmodule PlanningPoker.LobbyServer do
           votes: %{},
           vote_notes: %{},
           queue: queue,
+          opened_at: lobby.opened_at || DateTime.utc_now(),
           voting_started_at: DateTime.utc_now()
       }
 

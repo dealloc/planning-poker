@@ -630,9 +630,11 @@ defmodule PlanningPokerWeb.LobbyLive do
               <% end %>
 
               <%!-- Elapsed timer --%>
-              <span class="text-xs text-base-content/40">
-                {format_elapsed(@elapsed_seconds)}
-              </span>
+              <%= if @elapsed_seconds > 0 do %>
+                <span class="text-xs text-base-content/40">
+                  {format_elapsed(@elapsed_seconds)}
+                </span>
+              <% end %>
             </div>
           </div>
 
