@@ -35,6 +35,8 @@ defmodule PlanningPokerWeb.Layouts do
     default: "mx-auto max-w-2xl space-y-4",
     doc: "CSS classes for the inner content container"
 
+  attr :metrics, :map, default: nil, doc: "current metrics or nil to fetch fresh"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -42,7 +44,9 @@ defmodule PlanningPokerWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
       <div class="flex-1"><a href="/" class="text-xl font-bold">Planning Poker</a></div>
 
-      <div class="flex-none"><.theme_toggle /></div>
+      <div class="flex-none flex items-center gap-4">
+        <.metrics metrics={@metrics} /><.theme_toggle />
+      </div>
     </header>
 
     <main class="px-4 py-20 sm:px-6 lg:px-8">
@@ -100,6 +104,36 @@ defmodule PlanningPokerWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
+    </div>
+    """
+  end
+
+  @doc """
+  Displays global system metrics (active lobbies, user count, memory usage).
+  """
+  attr :metrics, :map,
+    default: nil,
+    doc: "current metrics map or nil to fetch fresh"
+
+  def metrics(assigns) do
+    assigns =
+      assign(assigns, :metrics, assigns.metrics || PlanningPoker.Metrics.get_global_metrics())
+
+    ~H"""
+    <div id="global-metrics" class="flex items-center gap-2 text-xs text-base-content/60">
+      <span title="Active lobbies">
+        <span class="font-medium">{@metrics.active_lobbies}</span>
+        {if @metrics.active_lobbies != 1, do: "lobbies", else: "lobby"}
+      </span>
+      <span class="text-base-content/30">•</span>
+      <span title="Connected users">
+        <span class="font-medium">{@metrics.total_users}</span>
+        user{if @metrics.total_users != 1, do: "s", else: ""}
+      </span>
+      <span class="text-base-content/30">•</span>
+      <span title="Memory usage">
+        <span class="font-medium">{@metrics.memory_mb}</span> MB
+      </span>
     </div>
     """
   end

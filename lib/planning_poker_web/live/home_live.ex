@@ -38,6 +38,10 @@ defmodule PlanningPokerWeb.HomeLive do
         end
       end
 
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "metrics")
+    end
+
     socket =
       socket
       |> assign(:mode, mode)
@@ -54,8 +58,14 @@ defmodule PlanningPokerWeb.HomeLive do
       )
       |> assign(:form, form)
       |> assign(:page_title, "Planning Poker")
+      |> assign(:metrics, PlanningPoker.Metrics.get_global_metrics())
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:metrics_updated, metrics}, socket) do
+    {:noreply, assign(socket, :metrics, metrics)}
   end
 
   @impl true
@@ -66,7 +76,7 @@ defmodule PlanningPokerWeb.HomeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} metrics={@metrics}>
       <div class="min-h-[80vh] flex flex-col items-center justify-center py-12">
         <%!-- Logo / Hero --%>
         <div class="text-center mb-10">

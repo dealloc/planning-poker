@@ -69,6 +69,7 @@ defmodule PlanningPokerWeb.LobbyLive do
           {:ok, lobby} ->
             if connected?(socket) do
               Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "lobby:#{lobby_id}")
+              Phoenix.PubSub.subscribe(PlanningPoker.PubSub, "metrics")
 
               Presence.track(self(), "lobby:#{lobby_id}", user_id, %{
                 name: user_name,
@@ -106,6 +107,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:qr_svg, nil)
               |> assign(:planning_systems, PlanningPoker.Lobby.planning_systems())
               |> assign(:avatars, PlanningPoker.Lobby.avatars())
+              |> assign(:metrics, PlanningPoker.Metrics.get_global_metrics())
 
             if connected?(socket), do: Process.send_after(self(), :tick, 1_000)
 
@@ -507,6 +509,10 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, :elapsed_seconds, elapsed)}
   end
 
+  def handle_info({:metrics_updated, metrics}, socket) do
+    {:noreply, assign(socket, :metrics, metrics)}
+  end
+
   def handle_info({:emoji_thrown, from, to, emoji}, socket) do
     socket =
       push_event(socket, "emoji_thrown", %{
@@ -540,7 +546,7 @@ defmodule PlanningPokerWeb.LobbyLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} inner_class="w-full max-w-7xl mx-auto px-4 sm:px-6">
+    <Layouts.app flash={@flash} inner_class="w-full max-w-7xl mx-auto px-4 sm:px-6" metrics={@metrics}>
       <div
         id="keyboard-shortcuts-root"
         phx-hook="KeyboardShortcuts"

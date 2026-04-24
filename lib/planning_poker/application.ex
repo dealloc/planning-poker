@@ -14,6 +14,7 @@ defmodule PlanningPoker.Application do
       {Registry, keys: :unique, name: PlanningPoker.LobbyRegistry},
       PlanningPoker.LobbySupervisor,
       PlanningPoker.Presence,
+      PlanningPoker.MetricsServer,
       PlanningPokerWeb.Endpoint
     ]
 
