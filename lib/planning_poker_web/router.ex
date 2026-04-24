@@ -4,6 +4,7 @@ defmodule PlanningPokerWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug PlanningPokerWeb.Plugs.UserPreferences
     plug :fetch_live_flash
     plug :put_root_layout, html: {PlanningPokerWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -20,6 +21,7 @@ defmodule PlanningPokerWeb.Router do
     live "/", HomeLive
     live "/lobby/:id", LobbyLive
     post "/session", SessionController, :create
+    delete "/session", SessionController, :delete
   end
 
   # Other scopes may use custom stacks.

@@ -48,6 +48,7 @@ defmodule PlanningPokerWeb.HomeLive do
       |> assign(:join_lobby_id, join_id)
       |> assign(:join_lobby_preview, join_lobby_preview)
       |> assign(:user_id, user_id)
+      |> assign(:user_name, user_name)
       |> assign(:selected_avatar, user_avatar)
       |> assign(:avatars, avatars)
       |> assign(
@@ -247,6 +248,18 @@ defmodule PlanningPokerWeb.HomeLive do
         <p class="mt-6 text-sm text-base-content/40">
           Share the lobby link with your team to get started.
         </p>
+
+        <%= if @user_name != "" do %>
+          <div class="mt-4 text-center">
+            <form action={~p"/session"} method="post">
+              <input type="hidden" name="_method" value="delete" />
+              <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+              <button type="submit" class="text-xs text-base-content/40 hover:text-base-content/70 underline underline-offset-2 transition-colors">
+                Logout
+              </button>
+            </form>
+          </div>
+        <% end %>
       </div>
     </Layouts.app>
     """
