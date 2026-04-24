@@ -27,7 +27,8 @@ defmodule PlanningPoker.Lobby do
     queue: [],
     history: [],
     participants: %{},
-    pending_host_transfer: nil
+    pending_host_transfer: nil,
+    buzz_cooldown_until: nil
   ]
 
   @card_systems %{

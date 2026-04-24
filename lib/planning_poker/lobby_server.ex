@@ -88,6 +88,9 @@ defmodule PlanningPoker.LobbyServer do
   def change_avatar(lobby_id, user_id, avatar),
     do: cast(lobby_id, {:change_avatar, user_id, avatar})
 
+  def buzz(lobby_id, from_id, to_id),
+    do: cast(lobby_id, {:buzz, from_id, to_id})
+
   def update_item_description(lobby_id, creator_id, item_id, description),
     do: call(lobby_id, {:update_item_description, creator_id, item_id, description})
 
@@ -418,6 +421,27 @@ defmodule PlanningPoker.LobbyServer do
         updated = %{participant | avatar: avatar}
         lobby = %{lobby | participants: Map.put(lobby.participants, user_id, updated)}
         broadcast(lobby, {:lobby_updated, lobby})
+        {:noreply, lobby}
+    end
+  end
+
+  def handle_cast({:buzz, _from_id, to_id}, lobby) do
+    now = DateTime.utc_now()
+
+    cond do
+      lobby.state != :voting ->
+        {:noreply, lobby}
+
+      Map.has_key?(lobby.votes, to_id) ->
+        {:noreply, lobby}
+
+      lobby.buzz_cooldown_until &&
+          DateTime.compare(now, lobby.buzz_cooldown_until) == :lt ->
+        {:noreply, lobby}
+
+      true ->
+        lobby = %{lobby | buzz_cooldown_until: DateTime.add(now, 10, :second)}
+        Phoenix.PubSub.broadcast(PlanningPoker.PubSub, topic(lobby.id), {:buzzed, to_id})
         {:noreply, lobby}
     end
   end

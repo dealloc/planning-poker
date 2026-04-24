@@ -327,6 +327,12 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, socket}
   end
 
+  def handle_event("buzz", %{"user-id" => to_id}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+    LobbyServer.buzz(lobby.id, uid, to_id)
+    {:noreply, socket}
+  end
+
   def handle_event("toggle_start_form", _params, socket) do
     {:noreply, assign(socket, :show_start_form, not socket.assigns.show_start_form)}
   end
@@ -509,6 +515,17 @@ defmodule PlanningPokerWeb.LobbyLive do
         emoji: emoji,
         target_el: "participant-#{to}"
       })
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:buzzed, to_id}, socket) do
+    socket =
+      if socket.assigns.current_user_id == to_id do
+        push_event(socket, "buzz_received", %{})
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
@@ -1681,6 +1698,17 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <%!-- Emoji throw + kick (hover actions) --%>
                   <%= if not is_me do %>
                     <div class="hidden group-hover:flex items-center gap-1"></div>
+                    <%= if @lobby.state == :voting && not is_spectator && not has_voted do %>
+                      <button
+                        phx-click="buzz"
+                        phx-value-user-id={pid}
+                        class="btn btn-ghost btn-xs min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-base-content/30 hover:text-warning"
+                        title={"Buzz #{participant.name}"}
+                        aria-label={"Buzz #{participant.name}"}
+                      >
+                        <.icon name="hero-bell-alert-micro" class="size-4" />
+                      </button>
+                    <% end %>
                     <div class="dropdown dropdown-end">
                       <.button
                         tabindex="0"
