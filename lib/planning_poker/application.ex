@@ -15,6 +15,7 @@ defmodule PlanningPoker.Application do
       PlanningPoker.LobbySupervisor,
       PlanningPoker.Presence,
       PlanningPoker.MetricsServer,
+      {PlanningPoker.MCP.Server, transport: :streamable_http},
       PlanningPokerWeb.Endpoint
     ]
 

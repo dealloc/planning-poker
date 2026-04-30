@@ -62,7 +62,8 @@ defmodule PlanningPoker.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:tidewave, "~> 0.5", only: :dev},
-      {:qr_code, "~> 3.2.0"}
+      {:qr_code, "~> 3.2.0"},
+      {:anubis_mcp, "~> 1.3.0"}
     ]
   end
 

@@ -94,6 +94,9 @@ defmodule PlanningPoker.LobbyServer do
   def update_item_description(lobby_id, creator_id, item_id, description),
     do: call(lobby_id, {:update_item_description, creator_id, item_id, description})
 
+  def update_queue_item(lobby_id, item_id, title, description),
+    do: call(lobby_id, {:update_queue_item, item_id, title, description})
+
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
   def start_link(attrs) do
@@ -356,6 +359,29 @@ defmodule PlanningPoker.LobbyServer do
     lobby = %{lobby | history: history}
     broadcast(lobby, {:lobby_updated, lobby})
     {:reply, {:ok, lobby}, lobby}
+  end
+
+  def handle_call({:update_queue_item, item_id, title, description}, _from, lobby) do
+    case Enum.find(lobby.queue, &(&1.id == item_id)) do
+      nil ->
+        {:reply, {:error, :not_found}, lobby}
+
+      _item ->
+        queue =
+          Enum.map(lobby.queue, fn item ->
+            if item.id == item_id do
+              item
+              |> then(fn i -> if title, do: Map.put(i, :title, title), else: i end)
+              |> then(fn i -> if description != nil, do: Map.put(i, :description, description), else: i end)
+            else
+              item
+            end
+          end)
+
+        lobby = %{lobby | queue: queue}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:reply, {:ok, lobby}, lobby}
+    end
   end
 
   def handle_call({:update_item_description, creator_id, item_id, description}, _from, lobby) do

@@ -1,6 +1,8 @@
 defmodule PlanningPokerWeb.Router do
   use PlanningPokerWeb, :router
 
+  # forward "/mcp", Anubis.Server.Transport.StreamableHTTP.Plug, server: PlanningPoker.MCP.Server
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -15,6 +17,10 @@ defmodule PlanningPokerWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :mcp do
+    plug :accepts, ["json"]
+  end
+
   scope "/", PlanningPokerWeb do
     pipe_through :browser
 
@@ -22,6 +28,11 @@ defmodule PlanningPokerWeb.Router do
     live "/lobby/:id", LobbyLive
     post "/session", SessionController, :create
     delete "/session", SessionController, :delete
+  end
+
+  scope "/mcp" do
+    pipe_through :mcp
+    forward  "/", Anubis.Server.Transport.StreamableHTTP.Plug, server: PlanningPoker.MCP.Server
   end
 
   # Other scopes may use custom stacks.
