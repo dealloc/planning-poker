@@ -37,4 +37,5 @@ npm-debug.log
 
 # Ignore LLM tokens
 .claude/settings.local.json
+.playwright-mcp/
 
