@@ -104,6 +104,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:editing_note_id, nil)
               |> assign(:editing_description_id, nil)
               |> assign(:show_qr_modal, false)
+              |> assign(:show_mcp_modal, false)
               |> assign(:qr_svg, nil)
               |> assign(:planning_systems, PlanningPoker.Lobby.planning_systems())
               |> assign(:avatars, PlanningPoker.Lobby.avatars())
@@ -427,6 +428,14 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, show_qr_modal: false)}
   end
 
+  def handle_event("show_mcp_modal", _params, socket) do
+    {:noreply, assign(socket, show_mcp_modal: true)}
+  end
+
+  def handle_event("close_mcp_modal", _params, socket) do
+    {:noreply, assign(socket, show_mcp_modal: false)}
+  end
+
   def handle_event("change_planning_system", %{"system" => system_str}, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     system = String.to_existing_atom(system_str)
@@ -732,6 +741,17 @@ defmodule PlanningPokerWeb.LobbyLive do
               <.icon name="hero-qr-code-micro" class="size-3.5 text-base-content/50" />
               <span class="text-xs font-medium text-base-content/60 hidden sm:inline">QR</span>
             </button>
+            <a
+              id="download-mcp-config"
+              href={~p"/lobby/#{@lobby.id}/mcp.json"}
+              download=".mcp.json"
+              phx-click="show_mcp_modal"
+              class="flex items-center gap-1.5 bg-base-200 border border-base-300 rounded-lg px-3 py-1.5 hover:bg-base-300 transition-colors cursor-pointer"
+              title="Download MCP server configuration"
+            >
+              <.icon name="hero-cpu-chip-micro" class="size-3.5 text-base-content/50" />
+              <span class="text-xs font-medium text-base-content/60 hidden sm:inline">MCP</span>
+            </a>
             <%!-- Notification toggle — visual state managed by NotificationManager hook via _syncButton --%>
             <div id="notification-manager" phx-hook="NotificationManager">
               <button
@@ -1813,6 +1833,68 @@ defmodule PlanningPokerWeb.LobbyLive do
               </div>
               <p class="text-xs font-mono text-base-content/60 break-all text-center select-all">
                 {url(~p"/lobby/#{@lobby.id}")}
+              </p>
+            </div>
+          </div>
+        </div>
+      <% end %>
+      <%!-- MCP Setup Modal --%>
+      <%= if @show_mcp_modal do %>
+        <div
+          id="mcp-setup-modal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          phx-click="close_mcp_modal"
+        >
+          <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-lg mx-4"
+            onclick="event.stopPropagation()"
+          >
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <h2 class="text-lg font-bold text-base-content">Connect via MCP</h2>
+                <p class="text-sm text-base-content/60 mt-1">
+                  The `.mcp.json` file has been downloaded for this lobby.
+                </p>
+              </div>
+              <button
+                phx-click="close_mcp_modal"
+                class="btn btn-ghost btn-sm btn-circle"
+                aria-label="Close"
+              >
+                <.icon name="hero-x-mark-micro" class="size-4" />
+              </button>
+            </div>
+
+            <div class="space-y-4 text-sm text-base-content/70">
+              <div class="rounded-xl border border-base-300 bg-base-200/70 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">
+                  Lobby ID
+                </p>
+                <code class="block rounded-lg bg-base-100 px-3 py-2 font-mono text-sm text-base-content select-all break-all">
+                  {@lobby.id}
+                </code>
+              </div>
+
+              <ol class="list-decimal pl-5 space-y-2">
+                <li>Move the downloaded `.mcp.json` file into your project root.</li>
+                <li>Restart your model client so it picks up the new MCP server.</li>
+                <li>
+                  Alternatively, call
+                  <code class="block rounded-lg bg-base-100 px-3 py-2 font-mono text-sm text-base-content select-all break-all">
+                    claude mcp add --scope project --transport http {url(~p"/mcp")}
+                  </code>
+                </li>
+                <li>
+                  Ask the model to use lobby ID
+                  <code class="rounded bg-base-200 px-1.5 py-0.5 font-mono text-base-content">
+                    {@lobby.id}
+                  </code>
+                  when calling the planning poker tools.
+                </li>
+              </ol>
+
+              <p class="text-xs text-base-content/50">
+                The config points at <span class="font-mono">{url(~p"/mcp")}</span>.
               </p>
             </div>
           </div>

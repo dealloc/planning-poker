@@ -9,12 +9,13 @@ defmodule PlanningPoker.MCP.Tools.CreateLobbyItem do
   alias PlanningPoker.LobbyServer
 
   schema do
-    field :lobby_id, :string, required: true, description: "The lobby ID"
-    field :title, :string, required: true, description: "Item title (e.g. ticket name)"
+    field(:lobby_id, :string, required: true, description: "The lobby ID")
+    field(:title, :string, required: true, description: "Item title (e.g. ticket name)")
 
-    field :description, :string,
+    field(:description, :string,
       required: false,
       description: "Full description or acceptance criteria (recommended)"
+    )
   end
 
   @impl true

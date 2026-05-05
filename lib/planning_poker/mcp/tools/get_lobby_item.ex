@@ -9,8 +9,8 @@ defmodule PlanningPoker.MCP.Tools.GetLobbyItem do
   alias PlanningPoker.LobbyServer
 
   schema do
-    field :lobby_id, :string, required: true, description: "The lobby ID"
-    field :item_id, :string, required: true, description: "The item ID to retrieve"
+    field(:lobby_id, :string, required: true, description: "The lobby ID")
+    field(:item_id, :string, required: true, description: "The item ID to retrieve")
   end
 
   @impl true

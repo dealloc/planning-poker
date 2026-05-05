@@ -4,8 +4,6 @@ defmodule PlanningPokerWeb.SessionController do
   alias PlanningPoker.LobbyServer
 
   @valid_systems ~w(fibonacci tshirt powers_of_two days)
-  @prefs_cookie "_pp_prefs"
-  @prefs_max_age 400 * 24 * 60 * 60
 
   def create(conn, %{"action_type" => "create"} = params) do
     user_id = params["user_id"] || generate_id()
@@ -29,7 +27,6 @@ defmodule PlanningPokerWeb.SessionController do
         |> put_session("user_id", user_id)
         |> put_session("user_name", user_name)
         |> put_session("user_avatar", user_avatar)
-        |> put_prefs_cookie(user_name, user_avatar)
         |> redirect(to: ~p"/lobby/#{lobby_id}")
 
       {:error, reason} ->
@@ -49,7 +46,6 @@ defmodule PlanningPokerWeb.SessionController do
     |> put_session("user_id", user_id)
     |> put_session("user_name", user_name)
     |> put_session("user_avatar", user_avatar)
-    |> put_prefs_cookie(user_name, user_avatar)
     |> redirect(to: ~p"/lobby/#{lobby_id}")
   end
 
@@ -62,18 +58,7 @@ defmodule PlanningPokerWeb.SessionController do
   def delete(conn, _params) do
     conn
     |> clear_session()
-    |> delete_resp_cookie(@prefs_cookie)
     |> redirect(to: ~p"/")
-  end
-
-  defp put_prefs_cookie(conn, user_name, user_avatar) do
-    value = Jason.encode!(%{user_name: user_name, user_avatar: user_avatar})
-
-    put_resp_cookie(conn, @prefs_cookie, value,
-      max_age: @prefs_max_age,
-      same_site: "Lax",
-      http_only: true
-    )
   end
 
   defp to_planning_system(s) when s in @valid_systems, do: String.to_atom(s)

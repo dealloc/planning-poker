@@ -6,7 +6,7 @@ defmodule PlanningPokerWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
-    plug PlanningPokerWeb.Plugs.UserPreferences
+    plug :delete_legacy_preferences_cookie
     plug :fetch_live_flash
     plug :put_root_layout, html: {PlanningPokerWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -26,13 +26,18 @@ defmodule PlanningPokerWeb.Router do
 
     live "/", HomeLive
     live "/lobby/:id", LobbyLive
+    get "/lobby/:id/mcp.json", McpConfigController, :show
     post "/session", SessionController, :create
     delete "/session", SessionController, :delete
   end
 
   scope "/mcp" do
     pipe_through :mcp
-    forward  "/", Anubis.Server.Transport.StreamableHTTP.Plug, server: PlanningPoker.MCP.Server
+    forward "/", Anubis.Server.Transport.StreamableHTTP.Plug, server: PlanningPoker.MCP.Server
+  end
+
+  defp delete_legacy_preferences_cookie(conn, _opts) do
+    Plug.Conn.delete_resp_cookie(conn, "_pp_prefs")
   end
 
   # Other scopes may use custom stacks.

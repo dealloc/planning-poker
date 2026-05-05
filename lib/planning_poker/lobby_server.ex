@@ -372,7 +372,9 @@ defmodule PlanningPoker.LobbyServer do
             if item.id == item_id do
               item
               |> then(fn i -> if title, do: Map.put(i, :title, title), else: i end)
-              |> then(fn i -> if description != nil, do: Map.put(i, :description, description), else: i end)
+              |> then(fn i ->
+                if description != nil, do: Map.put(i, :description, description), else: i
+              end)
             else
               item
             end

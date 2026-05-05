@@ -9,13 +9,18 @@ defmodule PlanningPoker.MCP.Tools.UpdateLobbyItem do
   alias PlanningPoker.LobbyServer
 
   schema do
-    field :lobby_id, :string, required: true, description: "The lobby ID"
-    field :item_id, :string, required: true, description: "The item ID to update"
-    field :title, :string, required: false, description: "New title (optional if description is provided)"
+    field(:lobby_id, :string, required: true, description: "The lobby ID")
+    field(:item_id, :string, required: true, description: "The item ID to update")
 
-    field :description, :string,
+    field(:title, :string,
+      required: false,
+      description: "New title (optional if description is provided)"
+    )
+
+    field(:description, :string,
       required: false,
       description: "New description (optional if title is provided)"
+    )
   end
 
   @impl true
@@ -40,12 +45,16 @@ defmodule PlanningPoker.MCP.Tools.UpdateLobbyItem do
     else
       case LobbyServer.get(params.lobby_id) do
         {:error, :not_found} ->
-          {:reply,
-           Response.error(Response.tool(), "Lobby not found: #{params.lobby_id}"), frame}
+          {:reply, Response.error(Response.tool(), "Lobby not found: #{params.lobby_id}"), frame}
 
         {:ok, lobby} ->
           if Enum.find(lobby.queue, &(&1.id == params.item_id)) do
-            case LobbyServer.update_queue_item(params.lobby_id, params.item_id, title, description) do
+            case LobbyServer.update_queue_item(
+                   params.lobby_id,
+                   params.item_id,
+                   title,
+                   description
+                 ) do
               {:ok, _lobby} ->
                 {:reply,
                  Response.json(Response.tool(), %{
