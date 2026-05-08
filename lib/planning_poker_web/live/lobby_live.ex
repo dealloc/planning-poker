@@ -1828,7 +1828,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               </button>
             </div>
             <div class="flex flex-col items-center gap-4">
-              <div class="rounded-lg overflow-hidden bg-white p-2 w-48 h-48 flex items-center justify-center [&>svg]:max-w-full [&>svg]:h-auto">
+              <div class="rounded-lg overflow-hidden bg-white p-2 w-48 [&>svg]:w-full [&>svg]:h-auto">
                 {Phoenix.HTML.raw(@qr_svg)}
               </div>
               <p class="text-xs font-mono text-base-content/60 break-all text-center select-all">
