@@ -21,6 +21,11 @@ defmodule PlanningPoker.MCP.Tools.UpdateLobbyItem do
       required: false,
       description: "New description (optional if title is provided)"
     )
+
+    field(:context_url, :string,
+      required: false,
+      description: "New URL linking to the ticket or relevant context (e.g. Jira, GitHub issue)"
+    )
   end
 
   @impl true
@@ -37,10 +42,14 @@ defmodule PlanningPoker.MCP.Tools.UpdateLobbyItem do
   def execute(params, frame) do
     title = Map.get(params, :title)
     description = Map.get(params, :description)
+    context_url = Map.get(params, :context_url)
 
-    if is_nil(title) and is_nil(description) do
+    if is_nil(title) and is_nil(description) and is_nil(context_url) do
       {:reply,
-       Response.error(Response.tool(), "At least one of title or description must be provided."),
+       Response.error(
+         Response.tool(),
+         "At least one of title, description, or context_url must be provided."
+       ),
        frame}
     else
       case LobbyServer.get(params.lobby_id) do
@@ -53,7 +62,8 @@ defmodule PlanningPoker.MCP.Tools.UpdateLobbyItem do
                    params.lobby_id,
                    params.item_id,
                    title,
-                   description
+                   description,
+                   context_url
                  ) do
               {:ok, _lobby} ->
                 {:reply,
