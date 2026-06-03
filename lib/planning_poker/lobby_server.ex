@@ -195,7 +195,7 @@ defmodule PlanningPoker.LobbyServer do
     if lobby.creator_id != creator_id do
       {:reply, {:error, :not_creator}, lobby}
     else
-      lobby = %{lobby | state: :waiting, votes: %{}, vote_notes: %{}, current_item: nil}
+      lobby = %{lobby | state: :voting, votes: %{}, vote_notes: %{}}
       broadcast(lobby, {:lobby_updated, lobby})
       {:reply, {:ok, lobby}, lobby}
     end
