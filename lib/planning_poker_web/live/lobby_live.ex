@@ -1864,13 +1864,11 @@ defmodule PlanningPokerWeb.LobbyLive do
       <%!-- QR Code Modal --%>
       <%= if @show_qr_modal do %>
         <div
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
           phx-click="close_qr_modal"
-        >
-          <div
-            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-xs mx-4"
-            onclick="event.stopPropagation()"
-          >
+        ></div>
+        <div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-xs mx-4 pointer-events-auto">
             <div class="flex items-center justify-between mb-5">
               <h2 class="text-lg font-bold text-base-content">Join via QR Code</h2>
               <button
@@ -1896,12 +1894,12 @@ defmodule PlanningPokerWeb.LobbyLive do
       <%= if @show_mcp_modal do %>
         <div
           id="mcp-setup-modal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
           phx-click="close_mcp_modal"
-        >
+        ></div>
+        <div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div
-            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-lg mx-4"
-            onclick="event.stopPropagation()"
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-lg mx-4 pointer-events-auto"
           >
             <div class="flex items-center justify-between mb-5">
               <div>
@@ -1957,12 +1955,12 @@ defmodule PlanningPokerWeb.LobbyLive do
       <%!-- Custom Cards Modal --%>
       <%= if @show_custom_cards_modal do %>
         <div
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
           phx-click="close_custom_cards_modal"
-        >
+        ></div>
+        <div class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div
-            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-sm mx-4"
-            onclick="event.stopPropagation()"
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-sm mx-4 pointer-events-auto"
           >
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-lg font-bold text-base-content">Custom Cards</h2>
