@@ -77,6 +77,11 @@ defmodule PlanningPokerWeb.HomeLive do
   end
 
   @impl true
+  def handle_event("avatar_image_selected", %{"data_uri" => data_uri}, socket) do
+    {:noreply, assign(socket, :selected_avatar, data_uri)}
+  end
+
+  @impl true
   def handle_event("planning_system_changed", %{"planning_system" => system}, socket) do
     {:noreply,
      socket
@@ -126,7 +131,7 @@ defmodule PlanningPokerWeb.HomeLive do
                     Map.get(@join_lobby_preview.participants, @join_lobby_preview.creator_id) %>
                   <%= if facilitator do %>
                     <span class="flex items-center gap-1">
-                      <span>{facilitator.avatar}</span>
+                      <.avatar_display value={facilitator.avatar} class="text-base w-5 h-5" />
                       <span>Hosted by <strong>{facilitator.name}</strong></span>
                     </span>
                   <% end %>
@@ -165,24 +170,33 @@ defmodule PlanningPokerWeb.HomeLive do
               />
               <div class="mb-4">
                 <label class="label text-sm font-medium mb-2 block">Pick your avatar</label>
-                <div class="grid grid-cols-8 gap-1.5">
-                  <%= for avatar <- @avatars do %>
-                    <button
-                      type="button"
-                      phx-click="select_avatar"
-                      phx-value-avatar={avatar}
-                      class={[
-                        "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150",
-                        "hover:bg-base-300 hover:scale-110 cursor-pointer",
-                        if(@selected_avatar == avatar,
-                          do: "bg-primary/20 ring-2 ring-primary scale-110",
-                          else: "bg-base-100"
-                        )
-                      ]}
-                    >
-                      {avatar}
-                    </button>
-                  <% end %>
+                <div id="avatar-upload-join" phx-hook="AvatarUpload">
+                  <input
+                    type="file"
+                    data-avatar-file-input
+                    accept="image/jpeg,image/png,image/webp"
+                    class="hidden"
+                    aria-hidden="true"
+                  />
+                  <div class="grid grid-cols-8 gap-1.5" data-avatar-grid>
+                    <%= for avatar <- @avatars do %>
+                      <button
+                        type="button"
+                        phx-click="select_avatar"
+                        phx-value-avatar={avatar}
+                        class={[
+                          "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150",
+                          "hover:bg-base-300 hover:scale-110 cursor-pointer",
+                          if(@selected_avatar == avatar,
+                            do: "bg-primary/20 ring-2 ring-primary scale-110",
+                            else: "bg-base-100"
+                          )
+                        ]}
+                      >
+                        {avatar}
+                      </button>
+                    <% end %>
+                  </div>
                 </div>
               </div>
 
@@ -217,24 +231,33 @@ defmodule PlanningPokerWeb.HomeLive do
               />
               <div class="mb-4">
                 <label class="label text-sm font-medium mb-2 block">Pick your avatar</label>
-                <div class="grid grid-cols-8 gap-1.5">
-                  <%= for avatar <- @avatars do %>
-                    <button
-                      type="button"
-                      phx-click="select_avatar"
-                      phx-value-avatar={avatar}
-                      class={[
-                        "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150",
-                        "hover:bg-base-300 hover:scale-110 cursor-pointer",
-                        if(@selected_avatar == avatar,
-                          do: "bg-primary/20 ring-2 ring-primary scale-110",
-                          else: "bg-base-100"
-                        )
-                      ]}
-                    >
-                      {avatar}
-                    </button>
-                  <% end %>
+                <div id="avatar-upload-create" phx-hook="AvatarUpload">
+                  <input
+                    type="file"
+                    data-avatar-file-input
+                    accept="image/jpeg,image/png,image/webp"
+                    class="hidden"
+                    aria-hidden="true"
+                  />
+                  <div class="grid grid-cols-8 gap-1.5" data-avatar-grid>
+                    <%= for avatar <- @avatars do %>
+                      <button
+                        type="button"
+                        phx-click="select_avatar"
+                        phx-value-avatar={avatar}
+                        class={[
+                          "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150",
+                          "hover:bg-base-300 hover:scale-110 cursor-pointer",
+                          if(@selected_avatar == avatar,
+                            do: "bg-primary/20 ring-2 ring-primary scale-110",
+                            else: "bg-base-100"
+                          )
+                        ]}
+                      >
+                        {avatar}
+                      </button>
+                    <% end %>
+                  </div>
                 </div>
               </div>
 
