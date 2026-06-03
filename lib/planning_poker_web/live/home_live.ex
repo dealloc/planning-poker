@@ -126,7 +126,7 @@ defmodule PlanningPokerWeb.HomeLive do
                     Map.get(@join_lobby_preview.participants, @join_lobby_preview.creator_id) %>
                   <%= if facilitator do %>
                     <span class="flex items-center gap-1">
-                      <span>{facilitator.avatar}</span>
+                      <.avatar_display value={facilitator.avatar} class="text-base w-5 h-5" />
                       <span>Hosted by <strong>{facilitator.name}</strong></span>
                     </span>
                   <% end %>

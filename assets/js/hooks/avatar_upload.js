@@ -1,0 +1,46 @@
+const SIZE = 80;
+
+const AvatarUpload = {
+  mounted() {
+    const input = this.el.querySelector("[data-avatar-file-input]");
+    const grid = this.el.querySelector("[data-avatar-grid]");
+    if (!input || !grid) return;
+
+    // Shift+click any avatar button in the grid to trigger the file picker
+    grid.addEventListener("click", (e) => {
+      if (!e.shiftKey) return;
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      input.click();
+    }, true);
+
+    input.addEventListener("change", () => {
+      const file = input.files[0];
+      if (!file) return;
+      input.value = "";
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(SIZE / img.width, SIZE / img.height, 1);
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          this.pushEvent("avatar_image_selected", {
+            data_uri: canvas.toDataURL("image/jpeg", 0.85),
+          });
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  },
+};
+
+export default AvatarUpload;

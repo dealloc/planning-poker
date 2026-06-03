@@ -494,6 +494,17 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, socket}
   end
 
+  def handle_event("avatar_image_selected", %{"data_uri" => data_uri}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+
+    Presence.update(self(), "lobby:#{lobby.id}", uid, fn meta ->
+      %{meta | avatar: data_uri}
+    end)
+
+    LobbyServer.change_avatar(lobby.id, uid, data_uri)
+    {:noreply, socket}
+  end
+
   # ── PubSub messages ──────────────────────────────────────────────────────────
 
   @impl true
@@ -1099,9 +1110,10 @@ defmodule PlanningPokerWeb.LobbyLive do
                         <% voter_vote = Map.get(@lobby.votes, uid) %>
                         <%= if voter do %>
                           <div class="flex items-start gap-3 bg-base-100 rounded-lg px-3 py-2.5 border border-base-300">
-                            <span class="text-xl leading-none flex-shrink-0 mt-0.5">
-                              {voter.avatar}
-                            </span>
+                            <.avatar_display
+                              value={voter.avatar}
+                              class="text-xl leading-none flex-shrink-0 mt-0.5 w-6 h-6"
+                            />
                             <div class="flex-1 min-w-0">
                               <div class="flex items-center gap-2 mb-1">
                                 <span class="text-xs font-medium text-base-content/70">
@@ -1685,40 +1697,49 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <%!-- Avatar + presence indicator --%>
                   <div class="relative flex-shrink-0">
                     <%= if is_me do %>
-                      <div class="dropdown">
-                        <button
-                          tabindex="0"
-                          class="text-2xl cursor-pointer hover:opacity-70 transition-opacity leading-none"
-                          title="Change avatar"
-                        >
-                          {participant.avatar}
-                        </button>
-                        <div
-                          tabindex="0"
-                          class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-3 shadow-lg w-56 mt-1"
-                        >
-                          <p class="text-xs text-base-content/50 mb-2 px-1">Change avatar</p>
-                          <div class="grid grid-cols-4 gap-2">
-                            <%= for avatar <- @avatars do %>
-                              <button
-                                phx-click="change_avatar"
-                                phx-value-avatar={avatar}
-                                class={[
-                                  "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150 hover:bg-base-200 hover:scale-110 cursor-pointer",
-                                  if(participant.avatar == avatar,
-                                    do: "bg-primary/20 outline outline-1 outline-primary",
-                                    else: "bg-base-200/50"
-                                  )
-                                ]}
-                              >
-                                {avatar}
-                              </button>
-                            <% end %>
+                      <div id={"avatar-upload-#{@current_user_id}"} phx-hook="AvatarUpload">
+                        <input
+                          type="file"
+                          data-avatar-file-input
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          class="hidden"
+                          aria-hidden="true"
+                        />
+                        <div class="dropdown">
+                          <button
+                            tabindex="0"
+                            class="text-2xl cursor-pointer hover:opacity-70 transition-opacity leading-none w-8 h-8 inline-flex items-center justify-center"
+                            title="Change avatar"
+                          >
+                            <.avatar_display value={participant.avatar} class="text-2xl w-8 h-8" />
+                          </button>
+                          <div
+                            tabindex="0"
+                            class="dropdown-content z-10 bg-base-100 border border-base-300 rounded-xl p-3 shadow-lg w-56 mt-1"
+                          >
+                            <p class="text-xs text-base-content/50 mb-2 px-1">Change avatar</p>
+                            <div class="grid grid-cols-4 gap-2" data-avatar-grid>
+                              <%= for avatar <- @avatars do %>
+                                <button
+                                  phx-click="change_avatar"
+                                  phx-value-avatar={avatar}
+                                  class={[
+                                    "text-2xl w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150 hover:bg-base-200 hover:scale-110 cursor-pointer",
+                                    if(participant.avatar == avatar,
+                                      do: "bg-primary/20 outline outline-1 outline-primary",
+                                      else: "bg-base-200/50"
+                                    )
+                                  ]}
+                                >
+                                  {avatar}
+                                </button>
+                              <% end %>
+                            </div>
                           </div>
                         </div>
                       </div>
                     <% else %>
-                      <span class="text-2xl">{participant.avatar}</span>
+                      <.avatar_display value={participant.avatar} class="text-2xl w-8 h-8" />
                     <% end %>
                     <span
                       title={

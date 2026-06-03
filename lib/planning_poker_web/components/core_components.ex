@@ -32,6 +32,25 @@ defmodule PlanningPokerWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
+  Renders a participant avatar — either an emoji or a custom uploaded image.
+  Wraps both in a same-sized span so callers control sizing via `class`.
+  """
+  attr :value, :string, required: true
+  attr :class, :string, default: ""
+
+  def avatar_display(assigns) do
+    ~H"""
+    <%= if String.starts_with?(@value || "", "data:") do %>
+      <span class={["inline-flex items-center justify-center", @class]}>
+        <img src={@value} class="w-full h-full rounded-full object-cover" />
+      </span>
+    <% else %>
+      <span class={@class}>{@value}</span>
+    <% end %>
+    """
+  end
+
+  @doc """
   Renders flash notices.
 
   ## Examples

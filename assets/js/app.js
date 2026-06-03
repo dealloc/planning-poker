@@ -31,12 +31,13 @@ import CharCounter from "./hooks/char_counter"
 import Confetti from "./hooks/confetti"
 import RickRoll from "./hooks/rick_roll"
 import SecretCard from "./hooks/secret_card"
+import AvatarUpload from "./hooks/avatar_upload"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager, CharCounter, Confetti, RickRoll, SecretCard },
+  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager, CharCounter, Confetti, RickRoll, SecretCard, AvatarUpload },
 })
 
 // Show progress bar on live navigation and form submits
