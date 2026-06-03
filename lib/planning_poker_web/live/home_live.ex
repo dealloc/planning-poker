@@ -174,7 +174,7 @@ defmodule PlanningPokerWeb.HomeLive do
                   <input
                     type="file"
                     data-avatar-file-input
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     class="hidden"
                     aria-hidden="true"
                   />
@@ -235,7 +235,7 @@ defmodule PlanningPokerWeb.HomeLive do
                   <input
                     type="file"
                     data-avatar-file-input
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     class="hidden"
                     aria-hidden="true"
                   />
