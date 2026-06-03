@@ -47,7 +47,18 @@ defmodule PlanningPokerWeb.LobbyLive do
     "🍕",
     "☕",
     "🎲",
-    "🐢"
+    "🐢",
+    # New additions
+    "🫡",
+    "🪄",
+    "💀",
+    "🧊",
+    "🎪",
+    "🫶",
+    "🏗️",
+    "🤌",
+    "🌀",
+    "⏰"
   ]
 
   # ── Mount ────────────────────────────────────────────────────────────────────
@@ -513,7 +524,10 @@ defmodule PlanningPokerWeb.LobbyLive do
 
         old_state == :voting && new_state == :revealed ->
           stats = PlanningPoker.Lobby.compute_stats(lobby.votes)
-          push_event(socket, "votes_revealed", %{consensus: stats.consensus?})
+          has_rickroll = lobby.votes |> Map.values() |> Enum.any?(&(&1 == "🎵"))
+
+          socket
+          |> push_event("votes_revealed", %{consensus: stats.consensus?, rickroll: has_rickroll})
 
         true ->
           socket
@@ -781,6 +795,8 @@ defmodule PlanningPokerWeb.LobbyLive do
               <.icon name="hero-cpu-chip-micro" class="size-3.5 text-base-content/50" />
               <span class="text-xs font-medium text-base-content/60 hidden sm:inline">MCP</span>
             </a>
+            <div id="confetti-manager" phx-hook="Confetti"></div>
+            <div id="rickroll-manager" phx-hook="RickRoll"></div>
             <%!-- Notification toggle — visual state managed by NotificationManager hook via _syncButton --%>
             <div id="notification-manager" phx-hook="NotificationManager">
               <button
@@ -1121,13 +1137,14 @@ defmodule PlanningPokerWeb.LobbyLive do
               <% else %>
                 <% cards = PlanningPoker.Lobby.cards(@lobby) %>
                 <div class="mb-6">
-                  <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
+                  <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3" id="card-deck" phx-hook="SecretCard">
                     <%= for card <- cards do %>
-                      <% selected = @my_vote == card %>
+                      <% selected = @my_vote == card || (@my_vote == "🎵" && card == "?") %>
                       <button
                         id={"card-#{card}"}
                         phx-click="vote"
                         phx-value-card={card}
+                        data-secret={if card == "?", do: "true"}
                         class={[
                           "relative h-24 sm:h-28 md:w-20 rounded-xl border-2 text-xl font-bold",
                           "flex flex-col items-center justify-center cursor-pointer select-none",
