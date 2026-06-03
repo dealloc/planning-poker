@@ -1,47 +1,24 @@
-// 🎵 You know the rules, and so do I
-const RICKROLL_NOTES = [
-  // Never Gonna Give You Up opening synth riff (A major)
-  // [frequency_hz, duration_ms]
-  [659, 150], [587, 150], [659, 150], [587, 150],
-  [659, 300], [494, 150], [587, 300], [523, 150],
-  [587, 300]
-]
-
 const RickRoll = {
   mounted() {
+    this._audio = new Audio("/audio/rickroll.mp3")
+    this._audio.preload = "auto"
+    this._audio.load()
+
     this.handleEvent("votes_revealed", ({ rickroll }) => {
       if (rickroll) {
-        playRickRollMelody()
+        this._audio.currentTime = 0
+        this._audio.play().catch(() => {})
         showRickRollBanner()
       }
     })
+  },
+
+  destroyed() {
+    if (this._audio) {
+      this._audio.pause()
+      this._audio = null
+    }
   }
-}
-
-function playRickRollMelody() {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext
-  if (!AudioCtx) return
-
-  const ctx = new AudioCtx()
-  let time = ctx.currentTime + 0.05
-
-  RICKROLL_NOTES.forEach(([freq, durationMs]) => {
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.type = "square"
-    osc.frequency.setValueAtTime(freq, time)
-
-    const dur = durationMs / 1000
-    gain.gain.setValueAtTime(0.08, time)
-    gain.gain.exponentialRampToValueAtTime(0.001, time + dur * 0.9)
-
-    osc.start(time)
-    osc.stop(time + dur)
-    time += dur
-  })
 }
 
 function showRickRollBanner() {
