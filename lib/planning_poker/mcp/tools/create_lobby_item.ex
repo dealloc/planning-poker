@@ -16,6 +16,11 @@ defmodule PlanningPoker.MCP.Tools.CreateLobbyItem do
       required: false,
       description: "Full description or acceptance criteria (recommended)"
     )
+
+    field(:context_url, :string,
+      required: false,
+      description: "URL linking to the ticket or relevant context (e.g. Jira, GitHub issue)"
+    )
   end
 
   @impl true
@@ -50,7 +55,7 @@ defmodule PlanningPoker.MCP.Tools.CreateLobbyItem do
             id: id,
             title: params.title,
             description: Map.get(params, :description),
-            context_url: nil
+            context_url: Map.get(params, :context_url)
           }
 
           case LobbyServer.add_to_queue(lobby_id, "mcp_agent", item) do

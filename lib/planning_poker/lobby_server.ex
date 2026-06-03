@@ -94,8 +94,8 @@ defmodule PlanningPoker.LobbyServer do
   def update_item_description(lobby_id, creator_id, item_id, description),
     do: call(lobby_id, {:update_item_description, creator_id, item_id, description})
 
-  def update_queue_item(lobby_id, item_id, title, description),
-    do: call(lobby_id, {:update_queue_item, item_id, title, description})
+  def update_queue_item(lobby_id, item_id, title, description, context_url \\ nil),
+    do: call(lobby_id, {:update_queue_item, item_id, title, description, context_url})
 
   # ── Server callbacks ─────────────────────────────────────────────────────────
 
@@ -361,7 +361,7 @@ defmodule PlanningPoker.LobbyServer do
     {:reply, {:ok, lobby}, lobby}
   end
 
-  def handle_call({:update_queue_item, item_id, title, description}, _from, lobby) do
+  def handle_call({:update_queue_item, item_id, title, description, context_url}, _from, lobby) do
     case Enum.find(lobby.queue, &(&1.id == item_id)) do
       nil ->
         {:reply, {:error, :not_found}, lobby}
@@ -374,6 +374,9 @@ defmodule PlanningPoker.LobbyServer do
               |> then(fn i -> if title, do: Map.put(i, :title, title), else: i end)
               |> then(fn i ->
                 if description != nil, do: Map.put(i, :description, description), else: i
+              end)
+              |> then(fn i ->
+                if context_url != nil, do: Map.put(i, :context_url, context_url), else: i
               end)
             else
               item
