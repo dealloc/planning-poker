@@ -979,34 +979,59 @@ defmodule PlanningPokerWeb.LobbyLive do
                 <%!-- Bar chart --%>
                 <%= if map_size(stats.distribution) > 0 do %>
                   <% max_count = stats.distribution |> Map.values() |> Enum.max() %>
+                  <% chart_height = 120 %>
                   <div class="mt-5">
-                    <p class="text-xs text-base-content/40 uppercase tracking-wider mb-2">
+                    <p class="text-xs text-base-content/40 uppercase tracking-wider mb-3">
                       Distribution
                     </p>
-                    <div class="flex items-end gap-2 h-28 border-b border-base-300">
+                    <%!-- Count labels row --%>
+                    <div class="flex gap-2 mb-1">
                       <%= for card <- cards_ordered,
                               count = Map.get(stats.distribution, card),
                               count != nil do %>
-                        <% tier = vote_tier(card, cards_ordered, stats.median) %>
-                        <div class="flex flex-col items-center gap-1 flex-1 min-w-[2rem]">
-                          <span class="text-[10px] text-base-content/50 leading-none">{count}</span>
-                          <div
-                            class={[
-                              "w-full rounded-t-md transition-all",
-                              tier == :outlier && "bg-error/60",
-                              tier == :near_consensus && "bg-success/60",
-                              tier == :middle && "bg-primary/40",
-                              tier == :clarification && "bg-warning/60"
-                            ]}
-                            style={"height: #{Float.round(count / max_count * 100, 1)}%;"}
-                          >
-                          </div>
+                        <div class="flex-1 min-w-[2rem] text-center text-[10px] text-base-content/60 font-semibold leading-none">
+                          {count}
                         </div>
                       <% end %>
                     </div>
-                    <div class="flex gap-2 mt-1">
+                    <%!-- Bars --%>
+                    <div class="relative">
+                      <%!-- Subtle grid lines --%>
+                      <div
+                        class="absolute inset-x-0 top-0 flex flex-col justify-between pointer-events-none"
+                        style={"height: #{chart_height}px"}
+                      >
+                        <div class="border-t border-dashed border-base-300/70"></div>
+                        <div class="border-t border-dashed border-base-300/70"></div>
+                        <div class="border-t border-dashed border-base-300/70"></div>
+                      </div>
+                      <div
+                        class="flex items-end gap-2 border-b-2 border-base-300"
+                        style={"height: #{chart_height}px"}
+                      >
+                        <%= for card <- cards_ordered,
+                                count = Map.get(stats.distribution, card),
+                                count != nil do %>
+                          <% tier = vote_tier(card, cards_ordered, stats.median) %>
+                          <% bar_height = round(count / max_count * chart_height) %>
+                          <div
+                            class={[
+                              "flex-1 min-w-[2rem] rounded-t-lg",
+                              tier == :outlier && "bg-error/70",
+                              tier == :near_consensus && "bg-success/70",
+                              tier == :middle && "bg-primary/60",
+                              tier == :clarification && "bg-warning/70"
+                            ]}
+                            style={"height: #{bar_height}px;"}
+                          >
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                    <%!-- Card value labels --%>
+                    <div class="flex gap-2 mt-1.5">
                       <%= for card <- cards_ordered, Map.has_key?(stats.distribution, card) do %>
-                        <div class="flex-1 min-w-[2rem] text-center text-[10px] text-base-content/40 font-mono truncate">
+                        <div class="flex-1 min-w-[2rem] text-center text-[10px] text-base-content/50 font-mono truncate">
                           {card}
                         </div>
                       <% end %>
