@@ -82,6 +82,9 @@ defmodule PlanningPoker.LobbyServer do
   def change_planning_system(lobby_id, creator_id, system),
     do: call(lobby_id, {:change_planning_system, creator_id, system})
 
+  def set_custom_cards(lobby_id, creator_id, cards),
+    do: call(lobby_id, {:set_custom_cards, creator_id, cards})
+
   def add_vote_note(lobby_id, user_id, note),
     do: call(lobby_id, {:add_vote_note, user_id, note})
 
@@ -322,6 +325,21 @@ defmodule PlanningPoker.LobbyServer do
 
       true ->
         lobby = %{lobby | planning_system: system}
+        broadcast(lobby, {:lobby_updated, lobby})
+        {:reply, {:ok, lobby}, lobby}
+    end
+  end
+
+  def handle_call({:set_custom_cards, creator_id, cards}, _from, lobby) do
+    cond do
+      lobby.creator_id != creator_id ->
+        {:reply, {:error, :not_creator}, lobby}
+
+      lobby.state == :voting ->
+        {:reply, {:error, :voting_in_progress}, lobby}
+
+      true ->
+        lobby = %{lobby | planning_system: :custom, custom_cards: cards}
         broadcast(lobby, {:lobby_updated, lobby})
         {:reply, {:ok, lobby}, lobby}
     end
