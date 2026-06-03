@@ -3,7 +3,7 @@ defmodule PlanningPokerWeb.SessionController do
 
   alias PlanningPoker.LobbyServer
 
-  @valid_systems ~w(fibonacci tshirt powers_of_two days)
+  @valid_systems ~w(fibonacci hours tshirt powers_of_two days custom)
 
   def create(conn, %{"action_type" => "create"} = params) do
     user_id = params["user_id"] || generate_id()
@@ -11,6 +11,7 @@ defmodule PlanningPokerWeb.SessionController do
     user_avatar = params["user_avatar"] || "🐶"
     lobby_name = String.trim(params["lobby_name"] || "Untitled Lobby")
     planning_system = to_planning_system(params["planning_system"])
+    custom_cards = parse_custom_cards(params["custom_cards"])
 
     user_attrs = %{name: user_name, avatar: user_avatar, role: :voter}
 
@@ -18,6 +19,7 @@ defmodule PlanningPokerWeb.SessionController do
       name: lobby_name,
       creator_id: user_id,
       planning_system: planning_system,
+      custom_cards: custom_cards,
       participants: %{user_id => user_attrs}
     }
 
@@ -63,6 +65,15 @@ defmodule PlanningPokerWeb.SessionController do
 
   defp to_planning_system(s) when s in @valid_systems, do: String.to_atom(s)
   defp to_planning_system(_), do: :fibonacci
+
+  defp parse_custom_cards(raw) when is_binary(raw) do
+    raw
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp parse_custom_cards(_), do: []
 
   defp generate_id do
     :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)

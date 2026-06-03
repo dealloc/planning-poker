@@ -58,6 +58,8 @@ defmodule PlanningPokerWeb.HomeLive do
         end)
       )
       |> assign(:form, form)
+      |> assign(:show_custom_cards, false)
+      |> assign(:selected_planning_system, "fibonacci")
       |> assign(:page_title, "Planning Poker")
       |> assign(:metrics, PlanningPoker.Metrics.get_global_metrics())
 
@@ -72,6 +74,18 @@ defmodule PlanningPokerWeb.HomeLive do
   @impl true
   def handle_event("select_avatar", %{"avatar" => avatar}, socket) do
     {:noreply, assign(socket, :selected_avatar, avatar)}
+  end
+
+  @impl true
+  def handle_event("planning_system_changed", %{"planning_system" => system}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_custom_cards, system == "custom")
+     |> assign(:selected_planning_system, system)}
+  end
+
+  def handle_event("planning_system_changed", _params, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -232,12 +246,37 @@ defmodule PlanningPokerWeb.HomeLive do
                 required
                 autocomplete="off"
               />
-              <.input
-                field={@form[:planning_system]}
-                type="select"
-                label="Card system"
-                options={@planning_systems}
-              />
+              <div class="fieldset mb-2">
+                <label>
+                  <span class="label mb-1">Card system</span>
+                  <select
+                    name="planning_system"
+                    class="w-full select"
+                    phx-change="planning_system_changed"
+                  >
+                    <%= for {label, value} <- @planning_systems do %>
+                      <option value={value} selected={value == @selected_planning_system}>
+                        {label}
+                      </option>
+                    <% end %>
+                  </select>
+                </label>
+              </div>
+              <%= if @show_custom_cards do %>
+                <div class="fieldset mb-2">
+                  <label>
+                    <span class="label mb-1">Custom cards</span>
+                    <input
+                      type="text"
+                      name="custom_cards"
+                      class="w-full input"
+                      placeholder="e.g. XS, S, M, L, XL, ?, ∞"
+                      autocomplete="off"
+                    />
+                  </label>
+                  <p class="text-xs text-base-content/50 mt-1">Comma-separated values</p>
+                </div>
+              <% end %>
               <.button variant={:primary} type="submit" class="btn btn-primary w-full mt-2">
                 Create Lobby →
               </.button>

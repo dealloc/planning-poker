@@ -105,6 +105,8 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:editing_description_id, nil)
               |> assign(:show_qr_modal, false)
               |> assign(:show_mcp_modal, false)
+              |> assign(:show_custom_cards_modal, false)
+              |> assign(:custom_cards_draft, "")
               |> assign(:qr_svg, nil)
               |> assign(:planning_systems, PlanningPoker.Lobby.planning_systems())
               |> assign(:avatars, PlanningPoker.Lobby.avatars())
@@ -436,11 +438,38 @@ defmodule PlanningPokerWeb.LobbyLive do
     {:noreply, assign(socket, show_mcp_modal: false)}
   end
 
+  def handle_event("change_planning_system", %{"system" => "custom"}, socket) do
+    %{lobby: lobby} = socket.assigns
+    current = Enum.join(lobby.custom_cards, ", ")
+    {:noreply, assign(socket, show_custom_cards_modal: true, custom_cards_draft: current)}
+  end
+
   def handle_event("change_planning_system", %{"system" => system_str}, socket) do
     %{lobby: lobby, current_user_id: uid} = socket.assigns
     system = String.to_existing_atom(system_str)
     LobbyServer.change_planning_system(lobby.id, uid, system)
     {:noreply, socket}
+  end
+
+  def handle_event("close_custom_cards_modal", _params, socket) do
+    {:noreply, assign(socket, show_custom_cards_modal: false)}
+  end
+
+  def handle_event("save_custom_cards", %{"custom_cards" => draft}, socket) do
+    %{lobby: lobby, current_user_id: uid} = socket.assigns
+
+    cards =
+      draft
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    LobbyServer.set_custom_cards(lobby.id, uid, cards)
+    {:noreply, assign(socket, show_custom_cards_modal: false)}
+  end
+
+  def handle_event("save_custom_cards", _params, socket) do
+    {:noreply, assign(socket, show_custom_cards_modal: false)}
   end
 
   def handle_event("change_avatar", %{"avatar" => avatar}, socket) do
@@ -941,7 +970,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <% end %>
                 </div>
                 <%!-- Distribution --%>
-                <% cards_ordered = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
+                <% cards_ordered = PlanningPoker.Lobby.cards(@lobby) %>
                 <div class="flex flex-wrap gap-2">
                   <%= for {card, count} <- Enum.sort_by(stats.distribution, fn {k, _} ->
                         Enum.find_index(cards_ordered, &(&1 == k)) || 9999
@@ -1090,7 +1119,7 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <p class="text-sm text-base-content/40 mt-1">Toggle spectator mode to vote</p>
                 </div>
               <% else %>
-                <% cards = PlanningPoker.Lobby.cards(@lobby.planning_system) %>
+                <% cards = PlanningPoker.Lobby.cards(@lobby) %>
                 <div class="mb-6">
                   <div class="grid grid-cols-4 sm:grid-cols-6 md:flex md:flex-wrap gap-3">
                     <%= for card <- cards do %>
@@ -1925,6 +1954,50 @@ defmodule PlanningPokerWeb.LobbyLive do
           </div>
         </div>
       <% end %>
+      <%!-- Custom Cards Modal --%>
+      <%= if @show_custom_cards_modal do %>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          phx-click="close_custom_cards_modal"
+        >
+          <div
+            class="bg-base-100 rounded-2xl shadow-2xl border border-base-300 p-6 w-full max-w-sm mx-4"
+            onclick="event.stopPropagation()"
+          >
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold text-base-content">Custom Cards</h2>
+              <button
+                phx-click="close_custom_cards_modal"
+                class="btn btn-ghost btn-sm btn-circle"
+                aria-label="Close"
+              >
+                <.icon name="hero-x-mark-micro" class="size-4" />
+              </button>
+            </div>
+            <form phx-submit="save_custom_cards">
+              <div class="mb-4">
+                <label class="label text-sm font-medium mb-1 block">Card values</label>
+                <input
+                  type="text"
+                  name="custom_cards"
+                  value={@custom_cards_draft}
+                  class="w-full input"
+                  placeholder="e.g. XS, S, M, L, XL, ?, ∞"
+                  autocomplete="off"
+                  autofocus
+                />
+                <p class="text-xs text-base-content/50 mt-1">Comma-separated values</p>
+              </div>
+              <div class="flex gap-2 justify-end">
+                <button type="button" phx-click="close_custom_cards_modal" class="btn btn-ghost btn-sm">
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      <% end %>
       <%!-- Keyboard Shortcuts Modal --%>
       <div
         id="shortcuts-modal"
@@ -2386,6 +2459,7 @@ defmodule PlanningPokerWeb.LobbyLive do
       Enum.flat_map(cards, fn c ->
         case Float.parse(to_string(c)) do
           {n, ""} -> [{n, c}]
+          {n, "h"} -> [{n, c}]
           _ -> []
         end
       end)
@@ -2401,9 +2475,11 @@ defmodule PlanningPokerWeb.LobbyLive do
   end
 
   defp planning_system_label(:fibonacci), do: "Fibonacci"
+  defp planning_system_label(:hours), do: "Man Hours"
   defp planning_system_label(:tshirt), do: "T-Shirt"
   defp planning_system_label(:powers_of_two), do: "Powers of 2"
   defp planning_system_label(:days), do: "Days"
+  defp planning_system_label(:custom), do: "Custom"
 
   defp planning_system_label(system),
     do: system |> to_string() |> String.replace("_", " ") |> String.capitalize()

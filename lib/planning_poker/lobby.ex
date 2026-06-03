@@ -3,9 +3,11 @@ defmodule PlanningPoker.Lobby do
 
   @planning_systems [
     {:fibonacci, "Fibonacci (1,2,3,5,8…)"},
+    {:hours, "Man Hours (1h,2h,4h,8h…)"},
     {:tshirt, "T-Shirt Sizes (XS–XXL)"},
     {:powers_of_two, "Powers of Two (1,2,4,8…)"},
-    {:days, "Days (1,2,3,4,5,7…)"}
+    {:days, "Days (1,2,3,4,5,7…)"},
+    {:custom, "Custom…"}
   ]
 
   def avatars, do: @avatars
@@ -17,6 +19,7 @@ defmodule PlanningPoker.Lobby do
     :creator_id,
     opened_at: nil,
     planning_system: :fibonacci,
+    custom_cards: [],
     auto_reveal: false,
     members_can_add_to_queue: false,
     state: :waiting,
@@ -33,12 +36,15 @@ defmodule PlanningPoker.Lobby do
 
   @card_systems %{
     fibonacci: ["0", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?", "∞", "☕"],
+    hours: ["1h", "2h", "4h", "8h", "12h", "16h", "24h", "32h", "?", "∞"],
     tshirt: ["0", "XS", "S", "M", "L", "XL", "XXL", "?", "∞"],
     powers_of_two: ["0", "1", "2", "4", "8", "16", "32", "64", "?", "∞"],
     days: ["0", "1", "2", "3", "4", "5", "7", "10", "14", "?", "∞"]
   }
 
-  def cards(system), do: Map.fetch!(@card_systems, system)
+  def cards(%__MODULE__{planning_system: :custom, custom_cards: cards}), do: cards
+  def cards(%__MODULE__{planning_system: system}), do: Map.fetch!(@card_systems, system)
+  def cards(system) when is_atom(system), do: Map.fetch!(@card_systems, system)
 
   def compute_stats(votes) do
     all_values = Map.values(votes)
@@ -48,6 +54,7 @@ defmodule PlanningPoker.Lobby do
       |> Enum.flat_map(fn v ->
         case Float.parse(to_string(v)) do
           {n, ""} -> [n]
+          {n, "h"} -> [n]
           _ -> []
         end
       end)
