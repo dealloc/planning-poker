@@ -53,15 +53,27 @@ defmodule PlanningPokerWeb.Layouts do
       <div class={@inner_class}>{render_slot(@inner_block)}</div>
     </main>
     <footer class="border-t border-base-300 py-4 text-center text-xs text-base-content/40">
-      Built with 💙 by
-      <a
-        href="https://www.elixus.be"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="hover:text-base-content/70 transition-colors"
-      >
-        Elixus
-      </a>
+      <div class="flex items-center justify-center gap-4">
+        <span>
+          Built with 💙 by
+          <a
+            href="https://www.elixus.be"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-base-content/70 transition-colors"
+          >
+            Elixus
+          </a>
+        </span>
+        <a
+          href="https://github.com/dealloc/planning-poker/issues/new"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-1 hover:text-base-content/70 transition-colors"
+        >
+          <.icon name="hero-bug-ant" class="size-3" /> Report a bug
+        </a>
+      </div>
     </footer>
     <.flash_group flash={@flash} />
     """
