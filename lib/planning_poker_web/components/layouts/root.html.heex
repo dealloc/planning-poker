@@ -27,11 +27,70 @@
           setTheme(localStorage.getItem("phx:theme") || "system");
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-        
+
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+      })();
+    </script>
+
+    <script>
+      (() => {
+        const loadClarity = () => {
+          (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            t.onload=()=>window.clarity("consent");
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+          })(window, document, "clarity", "script", "x16h4u6boq");
+        };
+
+        const consent = localStorage.getItem("cookie-consent");
+
+        if (consent === "accepted") loadClarity();
+
+        // Hide banner before first paint if user already decided
+        if (consent !== null) {
+          const s = document.createElement("style");
+          s.textContent = "#cookie-banner{display:none!important}";
+          document.head.appendChild(s);
+        }
+
+        window.acceptCookies = () => {
+          localStorage.setItem("cookie-consent", "accepted");
+          loadClarity();
+          document.getElementById("cookie-banner").remove();
+        };
+
+        window.declineCookies = () => {
+          localStorage.setItem("cookie-consent", "declined");
+          document.getElementById("cookie-banner").remove();
+        };
       })();
     </script>
   </head>
 
-  <body>{@inner_content}</body>
+  <body>
+    <div
+      id="cookie-banner"
+      class="fixed bottom-0 left-0 right-0 z-50 border-t border-base-300 bg-base-200 p-4 shadow-lg"
+    >
+      <div class="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:gap-4">
+        <p class="flex-1 text-sm">
+          We use
+          <a
+            href="https://clarity.microsoft.com"
+            class="link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Microsoft Clarity</a>
+          to understand how visitors use this app. No personal data is collected.
+        </p>
+        <div class="flex shrink-0 gap-2">
+          <button onclick="declineCookies()" class="btn btn-ghost btn-sm">Decline</button>
+          <button onclick="acceptCookies()" class="btn btn-primary btn-sm">Accept</button>
+        </div>
+      </div>
+    </div>
+
+    {@inner_content}
+  </body>
 </html>
