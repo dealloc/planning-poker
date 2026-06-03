@@ -1,4 +1,6 @@
-const SIZE = 80;
+// Target size for raster images (px). WebP at 48px is ~300-600 bytes base64,
+// small enough to survive a signed session cookie.
+const SIZE = 48;
 
 const AvatarUpload = {
   mounted() {
@@ -21,6 +23,18 @@ const AvatarUpload = {
       if (!file) return;
       input.value = "";
 
+      // GIFs must bypass canvas — drawing to canvas collapses all frames into
+      // one, killing the animation. Pass the raw data URI straight through.
+      if (file.type === "image/gif") {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          this.pushEvent("avatar_image_selected", { data_uri: ev.target.result });
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // All other image types: resize via canvas and re-encode as WebP.
       const reader = new FileReader();
       reader.onload = (ev) => {
         const img = new Image();
@@ -33,7 +47,7 @@ const AvatarUpload = {
           canvas.height = h;
           canvas.getContext("2d").drawImage(img, 0, 0, w, h);
           this.pushEvent("avatar_image_selected", {
-            data_uri: canvas.toDataURL("image/jpeg", 0.85),
+            data_uri: canvas.toDataURL("image/webp", 0.75),
           });
         };
         img.src = ev.target.result;
