@@ -1,5 +1,5 @@
 defmodule PlanningPoker.Lobby do
-  @avatars ~w(🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐸 🐵 🐙 🦋 🦄)
+  @avatars ~w(🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐸 🐵 🐙 🦋 🦄 🦖 🧙 🤖 👾 🧟 🦦 🐲 🫠 🧸 🪲)
 
   @planning_systems [
     {:fibonacci, "Fibonacci (1,2,3,5,8…)"},

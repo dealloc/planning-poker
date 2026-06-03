@@ -28,12 +28,15 @@ import QueueSortable from "./hooks/queue_sortable"
 import KeyboardShortcuts from "./hooks/keyboard_shortcuts"
 import NotificationManager from "./hooks/notification_manager"
 import CharCounter from "./hooks/char_counter"
+import Confetti from "./hooks/confetti"
+import RickRoll from "./hooks/rick_roll"
+import SecretCard from "./hooks/secret_card"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager, CharCounter },
+  hooks: { EmojiThrow, QueueSortable, KeyboardShortcuts, NotificationManager, CharCounter, Confetti, RickRoll, SecretCard },
 })
 
 // Show progress bar on live navigation and form submits
