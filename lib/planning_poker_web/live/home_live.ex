@@ -300,6 +300,23 @@ defmodule PlanningPokerWeb.HomeLive do
                   <p class="text-xs text-base-content/50 mt-1">Comma-separated values</p>
                 </div>
               <% end %>
+              <div class="fieldset mb-2">
+                <label>
+                  <span class="label mb-1">Discussion time limit (minutes)</span>
+                  <input
+                    type="number"
+                    name="discussion_threshold"
+                    min="1"
+                    step="1"
+                    class="w-full input"
+                    placeholder="Optional, e.g. 5"
+                    autocomplete="off"
+                  />
+                </label>
+                <p class="text-xs text-base-content/50 mt-1">
+                  Each ticket's timer turns red once it passes this limit. Leave blank to disable.
+                </p>
+              </div>
               <.button variant={:primary} type="submit" class="btn btn-primary w-full mt-2">
                 Create Lobby →
               </.button>

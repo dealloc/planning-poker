@@ -22,6 +22,7 @@ defmodule PlanningPoker.Lobby do
     custom_cards: [],
     auto_reveal: false,
     members_can_add_to_queue: false,
+    discussion_threshold_seconds: nil,
     state: :waiting,
     current_item: nil,
     voting_started_at: nil,
