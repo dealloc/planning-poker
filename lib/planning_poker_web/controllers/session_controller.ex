@@ -12,6 +12,7 @@ defmodule PlanningPokerWeb.SessionController do
     lobby_name = String.trim(params["lobby_name"] || "Untitled Lobby")
     planning_system = to_planning_system(params["planning_system"])
     custom_cards = parse_custom_cards(params["custom_cards"])
+    discussion_threshold_seconds = parse_threshold_seconds(params["discussion_threshold"])
 
     user_attrs = %{name: user_name, avatar: user_avatar, role: :voter}
 
@@ -20,6 +21,7 @@ defmodule PlanningPokerWeb.SessionController do
       creator_id: user_id,
       planning_system: planning_system,
       custom_cards: custom_cards,
+      discussion_threshold_seconds: discussion_threshold_seconds,
       participants: %{user_id => user_attrs}
     }
 
@@ -74,6 +76,15 @@ defmodule PlanningPokerWeb.SessionController do
   end
 
   defp parse_custom_cards(_), do: []
+
+  defp parse_threshold_seconds(raw) when is_binary(raw) do
+    case Integer.parse(String.trim(raw)) do
+      {minutes, ""} when minutes > 0 -> minutes * 60
+      _ -> nil
+    end
+  end
+
+  defp parse_threshold_seconds(_), do: nil
 
   defp generate_id do
     :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)

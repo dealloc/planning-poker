@@ -112,6 +112,7 @@ defmodule PlanningPokerWeb.LobbyLive do
               |> assign(:page_title, lobby.name)
               |> assign(:pending_host_transfer, lobby.pending_host_transfer)
               |> assign(:elapsed_seconds, elapsed_seconds(lobby.opened_at))
+              |> assign(:ticket_elapsed_seconds, ticket_elapsed_seconds(lobby))
               |> assign(:editing_note_id, nil)
               |> assign(:editing_description_id, nil)
               |> assign(:show_qr_modal, false)
@@ -568,8 +569,13 @@ defmodule PlanningPokerWeb.LobbyLive do
 
   def handle_info(:tick, socket) do
     elapsed = elapsed_seconds(socket.assigns.lobby.opened_at)
+    ticket_elapsed = ticket_elapsed_seconds(socket.assigns.lobby)
     Process.send_after(self(), :tick, 1_000)
-    {:noreply, assign(socket, :elapsed_seconds, elapsed)}
+
+    {:noreply,
+     socket
+     |> assign(:elapsed_seconds, elapsed)
+     |> assign(:ticket_elapsed_seconds, ticket_elapsed)}
   end
 
   def handle_info({:metrics_updated, metrics}, socket) do
@@ -850,6 +856,32 @@ defmodule PlanningPokerWeb.LobbyLive do
                     <h2 class="text-2xl font-bold text-base-content">
                       {@lobby.current_item.title}
                     </h2>
+                    <%= if @ticket_elapsed_seconds do %>
+                      <% over_threshold =
+                        @lobby.discussion_threshold_seconds &&
+                          @ticket_elapsed_seconds >= @lobby.discussion_threshold_seconds %>
+                      <span
+                        title={
+                          if @lobby.discussion_threshold_seconds,
+                            do:
+                              "Time spent on this ticket (limit: #{format_duration(@lobby.discussion_threshold_seconds)})",
+                            else: "Time spent on this ticket"
+                        }
+                        class={[
+                          "inline-flex items-center gap-1.5 mt-2 font-medium transition-all",
+                          if(over_threshold,
+                            do: "text-error text-lg font-bold animate-pulse",
+                            else: "text-sm text-base-content/50"
+                          )
+                        ]}
+                      >
+                        <.icon
+                          name="hero-clock-micro"
+                          class={if over_threshold, do: "size-5", else: "size-4"}
+                        />
+                        {format_duration(@ticket_elapsed_seconds)}
+                      </span>
+                    <% end %>
                     <%= if @lobby.current_item.context_url do %>
                       <a
                         href={@lobby.current_item.context_url}
@@ -2148,6 +2180,33 @@ defmodule PlanningPokerWeb.LobbyLive do
             </div>
           <% end %>
         </div>
+
+        <%= if @stats.item_breakdown != [] do %>
+          <div class="mt-5 pt-4 border-t border-base-300">
+            <h4 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-3">
+              Time per ticket
+            </h4>
+            <div class="space-y-2.5">
+              <%= for item <- @stats.item_breakdown do %>
+                <div>
+                  <div class="flex items-center justify-between gap-3 text-sm">
+                    <span class="truncate text-base-content/80">{item.title}</span>
+                    <span class="flex-shrink-0 text-base-content/50 tabular-nums">
+                      {format_session_time(item.duration_seconds)} · {round(item.fraction * 100)}%
+                    </span>
+                  </div>
+                  <div class="mt-1 h-1.5 rounded-full bg-base-300 overflow-hidden">
+                    <div
+                      class="h-full rounded-full bg-primary"
+                      style={"width: #{Float.round(item.fraction * 100, 1)}%"}
+                    >
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
       </div>
     <% end %>
     """
@@ -2307,6 +2366,15 @@ defmodule PlanningPokerWeb.LobbyLive do
   defp elapsed_seconds(opened_at) do
     DateTime.diff(DateTime.utc_now(), opened_at, :second)
   end
+
+  # Live per-ticket timer: only ticks while voting on the current item.
+  # Once votes are revealed it stops; the final duration lives in history.
+  defp ticket_elapsed_seconds(%{state: :voting, voting_started_at: started_at})
+       when not is_nil(started_at) do
+    DateTime.diff(DateTime.utc_now(), started_at, :second)
+  end
+
+  defp ticket_elapsed_seconds(_lobby), do: nil
 
   defp format_elapsed(seconds) when seconds < 60, do: "Open for #{seconds}s"
 
@@ -2480,11 +2548,34 @@ defmodule PlanningPokerWeb.LobbyLive do
         nil
       end
 
+    total_item_seconds = Enum.sum(all_durations)
+
+    item_breakdown =
+      history
+      |> Enum.reverse()
+      |> Enum.flat_map(fn e ->
+        case e[:duration_seconds] do
+          nil ->
+            []
+
+          duration ->
+            [
+              %{
+                title: (e.item && e.item.title) || "Untitled",
+                duration_seconds: duration,
+                fraction:
+                  if(total_item_seconds > 0, do: duration / total_item_seconds, else: 0.0)
+              }
+            ]
+        end
+      end)
+
     %{
       total_items: total_items,
       consensus_count: consensus_count,
       avg_duration: avg_duration,
-      session_seconds: session_seconds
+      session_seconds: session_seconds,
+      item_breakdown: item_breakdown
     }
   end
 
