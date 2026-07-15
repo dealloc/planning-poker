@@ -27,6 +27,7 @@ defmodule PlanningPokerWeb.LobbyLive do
     "😴",
     "🤦",
     "🫠",
+    "🤓",
     # Work & process
     "✅",
     "❌",
