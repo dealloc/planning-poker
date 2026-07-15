@@ -547,7 +547,11 @@ defmodule PlanningPokerWeb.LobbyLive do
           has_rickroll = lobby.votes |> Map.values() |> Enum.any?(&(&1 == "🎵"))
 
           socket
-          |> push_event("votes_revealed", %{consensus: stats.consensus?, rickroll: has_rickroll})
+          |> push_event("votes_revealed", %{
+            consensus: stats.consensus?,
+            chaos: stats.chaos?,
+            rickroll: has_rickroll
+          })
 
         true ->
           socket
@@ -822,6 +826,7 @@ defmodule PlanningPokerWeb.LobbyLive do
             </a>
             <div id="confetti-manager" phx-hook="Confetti"></div>
             <div id="rickroll-manager" phx-hook="RickRoll"></div>
+            <div id="chaos-manager" phx-hook="Chaos"></div>
             <%!-- Notification toggle — visual state managed by NotificationManager hook via _syncButton --%>
             <div id="notification-manager" phx-hook="NotificationManager">
               <button
@@ -1002,6 +1007,12 @@ defmodule PlanningPokerWeb.LobbyLive do
                   <div class="flex items-center gap-2 mb-4 text-success font-semibold">
                     <span class="text-2xl">🎉</span>
                     Consensus! Everyone voted <span class="font-mono">{stats.avg}</span>
+                  </div>
+                <% end %>
+                <%= if stats.chaos? do %>
+                  <div class="flex items-center gap-2 mb-4 text-error font-semibold">
+                    <span class="text-2xl">💥</span>
+                    Maximum chaos! Nobody agreed on anything.
                   </div>
                 <% end %>
                 <%= if stats.clarification_count > 0 do %>
@@ -1648,6 +1659,11 @@ defmodule PlanningPokerWeb.LobbyLive do
                           <%= if entry.stats.consensus? do %>
                             <span class="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full font-medium">
                               ✓ Consensus
+                            </span>
+                          <% end %>
+                          <%= if entry.stats[:chaos?] do %>
+                            <span class="text-xs bg-error/20 text-error px-2 py-0.5 rounded-full font-medium">
+                              💥 Chaos
                             </span>
                           <% end %>
                           <%= if show_system_badge do %>

@@ -63,6 +63,10 @@ defmodule PlanningPoker.Lobby do
     distribution = Enum.frequencies(all_values)
     clarification_count = Enum.count(all_values, &(&1 == "?"))
 
+    chaos? =
+      length(all_values) >= 3 and
+        length(Enum.uniq(all_values)) == length(all_values)
+
     if Enum.empty?(numeric_values) do
       %{
         avg: nil,
@@ -70,6 +74,7 @@ defmodule PlanningPoker.Lobby do
         min: nil,
         max: nil,
         consensus?: false,
+        chaos?: chaos?,
         distribution: distribution,
         clarification_count: clarification_count
       }
@@ -97,6 +102,7 @@ defmodule PlanningPoker.Lobby do
         min: Enum.min(sorted),
         max: Enum.max(sorted),
         consensus?: consensus?,
+        chaos?: chaos?,
         distribution: distribution,
         clarification_count: clarification_count
       }

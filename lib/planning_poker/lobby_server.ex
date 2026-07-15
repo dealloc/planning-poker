@@ -309,7 +309,15 @@ defmodule PlanningPoker.LobbyServer do
       participant ->
         role = if spectating?, do: :spectator, else: :voter
         updated = %{participant | role: role}
-        lobby = %{lobby | participants: Map.put(lobby.participants, user_id, updated)}
+
+        lobby = %{
+          lobby
+          | participants: Map.put(lobby.participants, user_id, updated),
+            votes: if(spectating?, do: Map.delete(lobby.votes, user_id), else: lobby.votes),
+            vote_notes:
+              if(spectating?, do: Map.delete(lobby.vote_notes, user_id), else: lobby.vote_notes)
+        }
+
         broadcast(lobby, {:lobby_updated, lobby})
         {:reply, {:ok, lobby}, lobby}
     end
