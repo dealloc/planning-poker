@@ -26,6 +26,7 @@ defmodule PlanningPokerWeb.LobbyLive do
     "🥳",
     "😴",
     "🤦",
+    "🫠",
     # Work & process
     "✅",
     "❌",
@@ -37,6 +38,9 @@ defmodule PlanningPokerWeb.LobbyLive do
     "🧪",
     "🛑",
     "📝",
+    "🧵",
+    "🚧",
+    "⚡",
     # Team & fun
     "🙌",
     "👀",
@@ -48,6 +52,8 @@ defmodule PlanningPokerWeb.LobbyLive do
     "☕",
     "🎲",
     "🐢",
+    "🍿",
+    "🐌",
     # New additions
     "🫡",
     "🪄",
