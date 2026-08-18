@@ -4,6 +4,7 @@ defmodule PlanningPoker.MCP.Server do
     version: "1.0.0",
     capabilities: [:tools]
 
+  component(PlanningPoker.MCP.Tools.CreateLobby)
   component(PlanningPoker.MCP.Tools.GetLobby)
   component(PlanningPoker.MCP.Tools.GetLobbyItem)
   component(PlanningPoker.MCP.Tools.CreateLobbyItem)

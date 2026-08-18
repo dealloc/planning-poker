@@ -125,7 +125,14 @@ defmodule PlanningPoker.LobbyServer do
   end
 
   def handle_call({:join, user_id, user_attrs}, _from, lobby) do
-    lobby = %{lobby | participants: Map.put(lobby.participants, user_id, user_attrs)}
+    # Lobbies created without a creator (e.g. through MCP) hand the host role to
+    # whoever walks in first.
+    lobby = %{
+      lobby
+      | creator_id: lobby.creator_id || user_id,
+        participants: Map.put(lobby.participants, user_id, user_attrs)
+    }
+
     broadcast(lobby, {:lobby_updated, lobby})
     {:reply, {:ok, lobby}, lobby}
   end
